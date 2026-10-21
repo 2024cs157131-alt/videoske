@@ -23,7 +23,11 @@ export default function RegisterPage() {
     setError('');
     setBusy(true);
     try {
-      await postJSON('/api/auth/register', { ...f, confirmAge, consent, terms });
+      let ref = new URLSearchParams(window.location.search).get('ref') || '';
+      try {
+        ref = ref || localStorage.getItem('vk_ref') || '';
+      } catch {}
+      await postJSON('/api/auth/register', { ...f, confirmAge, consent, terms, ref });
       window.location.href = '/';
     } catch (err) {
       setError((err as Error).message);

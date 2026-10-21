@@ -2,6 +2,7 @@ import './globals.css';
 import type { Metadata } from 'next';
 import Nav from '@/components/Nav';
 import AgeGate from '@/components/AgeGate';
+import RefCapture from '@/components/RefCapture';
 
 export const metadata: Metadata = {
   title: 'VideosKE',
@@ -14,6 +15,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body>
         <AgeGate />
+        <RefCapture />
         <Nav />
         <main className="container">{children}</main>
         <footer className="footer">

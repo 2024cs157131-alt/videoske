@@ -4,12 +4,26 @@ import { useRouter } from 'next/navigation';
 import { postJSON } from '@/lib/client';
 import type { Settings } from '@/lib/settings';
 
+const FIELDS: { key: keyof Settings; label: string; type?: 'select' }[] = [
+  { key: 'token_price_kes', label: 'KSh per token' },
+  { key: 'usd_rate', label: 'Conversion rate: KSh per 1 USD' },
+  { key: 'token_packages', label: 'Token packages (comma separated)' },
+  { key: 'usd_enabled', label: 'Charge non-Kenyans in USD', type: 'select' },
+  { key: 'price_min', label: 'Premium video min price (tokens)' },
+  { key: 'price_max', label: 'Premium video max price (tokens)' },
+  { key: 'commission_percent', label: 'Your commission (%)' },
+  { key: 'payout_min_tokens', label: 'Minimum withdrawal (tokens)' },
+  { key: 'referral_reward', label: 'Referral reward per active member (tokens = KSh)' },
+  { key: 'referral_min_purchase', label: 'Referred member is active after buying (tokens)' },
+  { key: 'native_ad_every', label: 'Native ad after every N videos (0 = off)' },
+  { key: 'interstitial_minutes', label: 'Interstitial at most every N minutes (0 = off)' },
+];
+
 export default function SettingsForm({ initial }: { initial: Settings }) {
   const router = useRouter();
   const [s, setS] = useState(initial);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
-  const set = (k: keyof Settings) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setS({ ...s, [k]: e.target.value });
 
   return (
     <form
@@ -29,38 +43,24 @@ export default function SettingsForm({ initial }: { initial: Settings }) {
         }
       }}
     >
-      <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
-        <div>
-          <label>Till number</label>
-          <input value={s.till_number} onChange={set('till_number')} inputMode="numeric" />
-        </div>
-        <div>
-          <label>Till name (as shown in SMS)</label>
-          <input value={s.till_name} onChange={set('till_name')} />
-        </div>
-        <div>
-          <label>Min price (Ksh)</label>
-          <input type="number" value={s.price_min} onChange={set('price_min')} />
-        </div>
-        <div>
-          <label>Max price (Ksh)</label>
-          <input type="number" value={s.price_max} onChange={set('price_max')} />
-        </div>
-        <div>
-          <label>Accept payments made within (hours)</label>
-          <input type="number" value={s.payment_max_age_hours} onChange={set('payment_max_age_hours')} />
-        </div>
-        <div>
-          <label>Require Safaricom (Daraja) match</label>
-          <select value={s.daraja_required} onChange={set('daraja_required')}>
-            <option value="false">No – check SMS text only</option>
-            <option value="true">Yes – code must exist in M-PESA callback</option>
-          </select>
-        </div>
+      <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+        {FIELDS.map((f) => (
+          <div key={f.key}>
+            <label>{f.label}</label>
+            {f.type === 'select' ? (
+              <select value={s[f.key]} onChange={(e) => setS({ ...s, [f.key]: e.target.value })}>
+                <option value="false">No – everyone pays in KES (foreign cards still work)</option>
+                <option value="true">Yes – non-Kenyans pay in USD</option>
+              </select>
+            ) : (
+              <input value={s[f.key]} onChange={(e) => setS({ ...s, [f.key]: e.target.value })} />
+            )}
+          </div>
+        ))}
       </div>
       <p className="muted small">
-        New prices apply to new uploads. Turn on the Daraja match once C2B callbacks are working – it stops people
-        unlocking with typed-up fake messages.
+        Visitors outside Kenya see prices in USD, converted with your rate (e.g. 130 → 200 tokens ≈ $1.54). Update the
+        rate when the shilling moves. Turn on “charge in USD” only after Paystack has enabled USD on your account.
       </p>
       {msg && <div className={msg.ok ? 'success' : 'error'}>{msg.text}</div>}
       <div>

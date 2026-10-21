@@ -21,6 +21,12 @@ export async function POST(req: Request) {
     return bad('You must confirm you are 18+, give consent and accept the terms.');
   }
 
+  const refName = String(b.ref ?? '').trim().toLowerCase();
+  const referrer =
+    refName && refName !== username
+      ? await prisma.user.findFirst({ where: { username: refName, banned: false, managedByAdmin: false } })
+      : null;
+
   const taken = await prisma.user.findFirst({ where: { OR: [{ username }, { email }] } });
   if (taken) return bad('That username or email is already registered.');
 
@@ -31,6 +37,7 @@ export async function POST(req: Request) {
       displayName,
       dob,
       consentAt: new Date(),
+      referredById: referrer?.id ?? null,
       passwordHash: await bcrypt.hash(password, 12),
     },
   });

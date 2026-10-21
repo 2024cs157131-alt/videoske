@@ -1,27 +1,25 @@
 'use client';
 import { useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import { postJSON } from '@/lib/client';
+import { uploadFile } from '@/lib/upload';
 
 type Owner = { id: string; label: string };
-type Kind = 'video' | 'thumb' | 'preview';
 
-async function uploadFile(kind: Kind, file: File, ownerId: string) {
-  const s = await postJSON<{ bucket: string; path: string; token: string }>('/api/uploads/sign', {
-    kind,
-    filename: file.name,
-    ownerId,
-  });
-  const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
-  const { error } = await sb.storage.from(s.bucket).uploadToSignedUrl(s.path, s.token, file, {
-    contentType: file.type || undefined,
-  });
-  if (error) throw new Error(`Upload failed: ${error.message}`);
-  return s.path;
-}
-
-export default function UploadForm({ owners, defaultOwner }: { owners: Owner[]; defaultOwner: string }) {
+export default function UploadForm({
+  owners,
+  defaultOwner,
+  priceMin,
+  priceMax,
+  creatorPercent,
+}: {
+  owners: Owner[];
+  defaultOwner: string;
+  priceMin: number;
+  priceMax: number;
+  creatorPercent: number;
+}) {
   const [ownerId, setOwnerId] = useState(defaultOwner);
+  const [isPremium, setIsPremium] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [video, setVideo] = useState<File | null>(null);
@@ -39,22 +37,23 @@ export default function UploadForm({ owners, defaultOwner }: { owners: Owner[]; 
     setBusy(true);
     try {
       setStatus('Uploading video… (keep this page open)');
-      const videoPath = await uploadFile('video', video, ownerId);
+      const videoPath = (await uploadFile('video', video, ownerId)).path;
       let thumbPath: string | null = null;
       let previewPath: string | null = null;
       if (thumb) {
         setStatus('Uploading thumbnail…');
-        thumbPath = await uploadFile('thumb', thumb, ownerId);
+        thumbPath = (await uploadFile('thumb', thumb, ownerId)).path;
       }
-      if (preview) {
+      if (isPremium && preview) {
         setStatus('Uploading preview clip…');
-        previewPath = await uploadFile('preview', preview, ownerId);
+        previewPath = (await uploadFile('preview', preview, ownerId)).path;
       }
       setStatus('Saving…');
       const res = await postJSON<{ id: string }>('/api/videos', {
         ownerId,
         title,
         description,
+        isPremium,
         videoPath,
         thumbPath,
         previewPath,
@@ -82,6 +81,28 @@ export default function UploadForm({ owners, defaultOwner }: { owners: Owner[]; 
           </select>
         </div>
       )}
+
+      <div className="row" style={{ alignItems: 'stretch' }}>
+        <label className={`radio-card ${!isPremium ? 'on' : ''}`}>
+          <input type="radio" checked={!isPremium} onChange={() => setIsPremium(false)} />
+          <span>
+            <strong>Free (public)</strong>
+            <br />
+            <span className="muted small">Anyone can watch. Free videos don’t earn.</span>
+          </span>
+        </label>
+        <label className={`radio-card ${isPremium ? 'on' : ''}`}>
+          <input type="radio" checked={isPremium} onChange={() => setIsPremium(true)} />
+          <span>
+            <strong>Premium (paid)</strong>
+            <br />
+            <span className="muted small">
+              Unlocked with tokens ({priceMin}–{priceMax}, set randomly). You earn {creatorPercent}%.
+            </span>
+          </span>
+        </label>
+      </div>
+
       <div>
         <label>Title</label>
         <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={120} required />
@@ -91,22 +112,29 @@ export default function UploadForm({ owners, defaultOwner }: { owners: Owner[]; 
         <textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={2000} />
       </div>
       <div>
-        <label>Full video (MP4 recommended) – only buyers can watch this</label>
-        <input type="file" accept="video/mp4,video/webm,video/quicktime,.m4v" onChange={(e) => setVideo(e.target.files?.[0] ?? null)} required />
+        <label>Video file (MP4 recommended)</label>
+        <input
+          type="file"
+          accept="video/mp4,video/webm,video/quicktime,.m4v"
+          onChange={(e) => setVideo(e.target.files?.[0] ?? null)}
+          required
+        />
       </div>
       <div>
         <label>Thumbnail image (JPG/PNG/WebP) – shown to everyone</label>
         <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setThumb(e.target.files?.[0] ?? null)} />
       </div>
-      <div>
-        <label>Preview clip (optional, 10–30 seconds, MP4/WebM) – shown to everyone</label>
-        <input type="file" accept="video/mp4,video/webm,.m4v" onChange={(e) => setPreview(e.target.files?.[0] ?? null)} />
-      </div>
+      {isPremium && (
+        <div>
+          <label>Preview clip (optional, 10–30 seconds) – shown before unlocking</label>
+          <input type="file" accept="video/mp4,video/webm,.m4v" onChange={(e) => setPreview(e.target.files?.[0] ?? null)} />
+        </div>
+      )}
       <label className="check">
         <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
         <span>
-          I confirm that every person in this video is 18 or older, consented to being filmed and to this video being
-          published and sold on VideosKE, and that I own the rights to it.
+          I confirm everyone in this video is 18 or older and agreed to being filmed and published, the video contains{' '}
+          <strong>no nudity or sexual content</strong>, and I own the rights to it.
         </span>
       </label>
       {error && <div className="error">{error}</div>}

@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import VideoCard from '@/components/VideoCard';
+import { getPricing } from '@/lib/pricing';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,11 +24,13 @@ export default async function ProfilePage({ params }: { params: { username: stri
     prisma.liveStream.findFirst({ where: { hostId: profile.id, isLive: true } }),
   ]);
 
-  const bought = user
+  const pricing = await getPricing();
+  const totalViews = videos.reduce((n, v) => n + v.views, 0);
+  const unlocked = user
     ? new Set(
-        (await prisma.purchase.findMany({ where: { userId: user.id, video: { ownerId: profile.id } }, select: { videoId: true } })).map(
-          (p) => p.videoId,
-        ),
+        (
+          await prisma.unlock.findMany({ where: { userId: user.id, video: { ownerId: profile.id } }, select: { videoId: true } })
+        ).map((u) => u.videoId),
       )
     : new Set<string>();
 
@@ -37,7 +40,7 @@ export default async function ProfilePage({ params }: { params: { username: stri
         <div>
           <h1 style={{ margin: 0 }}>{profile.displayName}</h1>
           <div className="muted">
-            @{profile.username} · {videos.length} video{videos.length === 1 ? '' : 's'}
+            @{profile.username} · {videos.length} video{videos.length === 1 ? '' : 's'} · {totalViews.toLocaleString()} views
             {profile.banned && ' · BANNED'}
           </div>
           {profile.bio && <p style={{ margin: '8px 0 0', whiteSpace: 'pre-wrap' }}>{profile.bio}</p>}
@@ -53,6 +56,11 @@ export default async function ProfilePage({ params }: { params: { username: stri
               Message
             </Link>
           )}
+          {isMe && (
+            <Link href="/wallet" className="btn ghost">
+              🪙 Earnings: {profile.earnedTokens}
+            </Link>
+          )}
           {(isMe || (isAdmin && profile.managedByAdmin)) && (
             <Link href={`/upload?owner=${profile.id}`} className="btn">
               + Add video
@@ -66,7 +74,7 @@ export default async function ProfilePage({ params }: { params: { username: stri
       ) : (
         <div className="grid">
           {videos.map((v) => (
-            <VideoCard key={v.id} v={v} unlocked={canSeeAll || bought.has(v.id)} showStatus={canSeeAll} />
+            <VideoCard key={v.id} v={v} pricing={pricing} unlocked={canSeeAll || unlocked.has(v.id)} showStatus={canSeeAll} />
           ))}
         </div>
       )}

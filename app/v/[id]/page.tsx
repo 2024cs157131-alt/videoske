@@ -3,11 +3,16 @@ import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { getSettings } from '@/lib/settings';
+import { pickAds } from '@/lib/ads';
 import { publicUrl, signedVideoUrl } from '@/lib/storage';
-import UnlockForm from './UnlockForm';
 import Comments from './Comments';
 import ReportButton from './ReportButton';
 import ActionButton from '@/components/ActionButton';
+import TokenUnlock from '@/components/TokenUnlock';
+import Interstitial from '@/components/Interstitial';
+import VideoPlayer from '@/components/VideoPlayer';
+import { fmtViews } from '@/components/VideoCard';
+import { getPricing, priceLabel } from '@/lib/pricing';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,50 +28,58 @@ export default async function VideoPage({ params }: { params: { id: string } }) 
   const isAdmin = user?.role === 'ADMIN';
   if ((video.status !== 'APPROVED' || video.owner.banned) && !isOwner && !isAdmin) notFound();
 
-  let unlocked = isOwner || isAdmin;
-  if (!unlocked && user) {
-    unlocked = !!(await prisma.purchase.findUnique({
-      where: { userId_videoId: { userId: user.id, videoId: video.id } },
-    }));
+  // Free videos: any logged-in member. Premium: owner, admin, or someone who unlocked it.
+  let canWatch = !!user && (isOwner || isAdmin || !video.isPremium);
+  if (!canWatch && user) {
+    canWatch = !!(await prisma.unlock.findUnique({ where: { userId_videoId: { userId: user.id, videoId: video.id } } }));
   }
 
-  const src = unlocked ? await signedVideoUrl(video.videoPath) : null;
+  const [src, settings] = await Promise.all([canWatch ? signedVideoUrl(video.videoPath) : null, getSettings()]);
+  const pricing = await getPricing(settings);
+  const minutes = parseInt(settings.interstitial_minutes, 10) || 0;
+  const [ad] = minutes > 0 && !isAdmin ? await pickAds('INTERSTITIAL', 1) : [];
   const thumb = publicUrl(video.thumbPath);
   const preview = publicUrl(video.previewPath);
-  const settings = await getSettings();
 
   return (
     <div className="stack">
+      <Interstitial ad={ad ? { id: ad.id, title: ad.title, body: ad.body, imageUrl: ad.imageUrl } : null} minutes={minutes} />
+
       {video.status !== 'APPROVED' && (
         <div className="error">
-          Status: <strong>{video.status}</strong> — only you and admins can see this video until it is approved.
+          Status: <strong>{video.status}</strong> – only you and admins can see this video until it is approved.
         </div>
       )}
 
-      {unlocked && src ? (
+      {canWatch && src ? (
         <div className="player">
-          <video src={src} poster={thumb ?? undefined} controls controlsList="nodownload" playsInline />
+          <VideoPlayer id={video.id} src={src} poster={thumb ?? undefined} />
         </div>
       ) : (
         <div className="player">
           {preview ? (
             <video src={preview} poster={thumb ?? undefined} autoPlay muted loop playsInline />
           ) : thumb ? (
-            <img src={thumb} alt="" className="blur" />
+            <img src={thumb} alt="" className={video.isPremium ? 'blur' : ''} />
           ) : (
             <div className="placeholder" />
           )}
           {preview && <span className="preview-tag">Preview</span>}
-          <span className="lock-badge">🔒 Unlock full video · Ksh {video.price}</span>
+          <span className="lock-badge">
+            {video.isPremium ? `🔒 Premium · ${priceLabel(video.price, pricing)}` : '▶ Free – log in to watch'}
+          </span>
         </div>
       )}
 
       <div className="row between">
         <div>
-          <h1 style={{ margin: 0 }}>{video.title}</h1>
+          <h1 style={{ margin: 0 }}>
+            {video.title} {!video.isPremium && <span className="badge" style={{ background: '#2b6cdf' }}>FREE</span>}
+          </h1>
           <Link href={`/u/${video.owner.username}`} className="muted">
             @{video.owner.username} · {video.owner.displayName}
           </Link>
+          <span className="muted"> · {fmtViews(video.views)} views</span>
         </div>
         <div className="row">
           {user && !isOwner && <ReportButton videoId={video.id} />}
@@ -86,14 +99,21 @@ export default async function VideoPage({ params }: { params: { id: string } }) 
       </div>
       {video.description && <p style={{ whiteSpace: 'pre-wrap' }}>{video.description}</p>}
 
-      {!unlocked && (
-        <UnlockForm
-          videoId={video.id}
+      {!canWatch && video.isPremium && (
+        <TokenUnlock
+          url={`/api/videos/${video.id}/unlock`}
           price={video.price}
-          tillNumber={settings.till_number}
-          tillName={settings.till_name}
+          priceText={priceLabel(video.price, pricing)}
+          balance={user?.tokenBalance ?? 0}
           loggedIn={!!user}
+          what="this video"
+          loginNext={`/v/${video.id}`}
         />
+      )}
+      {!user && !video.isPremium && (
+        <Link href={`/login?next=/v/${video.id}`} className="btn" style={{ alignSelf: 'flex-start' }}>
+          Log in to watch for free
+        </Link>
       )}
 
       <Comments

@@ -15,13 +15,14 @@ export async function POST(req: Request) {
 
   const title = String(b.title ?? '').trim();
   const description = String(b.description ?? '').trim().slice(0, 2000) || null;
+  const isPremium = b.isPremium === true;
   const videoPath = String(b.videoPath ?? '');
   const thumbPath = b.thumbPath ? String(b.thumbPath) : null;
   const previewPath = b.previewPath ? String(b.previewPath) : null;
 
   if (title.length < 3 || title.length > 120) return bad('Title must be 3–120 characters.');
   if (b.consent !== true) {
-    return bad('Confirm that everyone in the video is 18+ and consented to filming and publishing.');
+    return bad('Confirm everyone shown is 18+ and consented, and that the video has no nudity or sexual content.');
   }
   if (!videoPath.startsWith(`${ownerId}/video/`)) return bad('Upload the video file first.');
   if (thumbPath && !thumbPath.startsWith(`${ownerId}/thumb/`)) return bad('Invalid thumbnail.');
@@ -31,12 +32,13 @@ export async function POST(req: Request) {
     data: {
       title,
       description,
+      isPremium,
+      price: isPremium ? await randomPrice() : 0,
       videoPath,
       thumbPath,
-      previewPath,
+      previewPath: isPremium ? previewPath : null,
       ownerId,
-      price: await randomPrice(),
-      // Admin uploads go live straight away; user uploads wait for moderation.
+      // Every video is reviewed by an admin first; admin uploads go live straight away.
       status: user.role === 'ADMIN' ? 'APPROVED' : 'PENDING',
     },
   });

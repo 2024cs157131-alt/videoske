@@ -1,32 +1,48 @@
 export default function Terms() {
   return (
     <div className="card-panel stack" style={{ maxWidth: 760, margin: '0 auto' }}>
-      <h1>Terms &amp; consent policy</h1>
+      <h1>Terms, content rules &amp; consent</h1>
       <p>
-        <strong>Adults only.</strong> You must be at least 18 years old to register, view, upload or interact on
+        <strong>Adults only.</strong> You must be at least 18 years old to register, watch, upload, go live or chat on
         VideosKE. By registering you confirm your date of birth is true.
       </p>
       <p>
-        <strong>Consent of everyone shown.</strong> You may only upload videos in which every person shown is 18 or
-        older and has given consent to being filmed and to the video being published and sold here. Uploads are
-        reviewed before they appear. Videos involving anyone under 18, or anyone who did not consent, are removed and
-        the account is banned and reported to the authorities.
+        <strong>Content rules.</strong> Free and premium videos and live streams must not contain nudity, sexual acts,
+        sexually explicit material or sexual services. Mature themes (e.g. strong language, nightlife, fitness, fashion)
+        are allowed for our 18+ audience. Every upload is reviewed by an admin before it appears. Breaking these rules
+        gets content removed and accounts banned.
       </p>
       <p>
-        <strong>Payments.</strong> Each video has its own price. Pay the exact amount to the till number shown via Lipa
-        na M-PESA (Buy Goods), then paste the full confirmation SMS to unlock. Each M-PESA code unlocks one video
-        once. Payments are for access to the specific video and are non-refundable once unlocked.
+        <strong>Consent of everyone shown.</strong> You may only upload or stream content in which every person is 18 or
+        older and has agreed to being filmed and to the content being published and sold here. Content involving anyone
+        under 18 is removed, the account banned and reported to the authorities.
+      </p>
+      <p>
+        <strong>Tokens.</strong> 1 token = KSh 1. Visitors outside Kenya see prices converted to US dollars. Tokens are
+        bought through Paystack (M-PESA or card) and used to unlock premium videos
+        and paid live streams on VideosKE. Tokens have no cash value for buyers, cannot be transferred, and are
+        non-refundable once spent.
+      </p>
+      <p>
+        <strong>Creator earnings.</strong> Creators earn 70% of the tokens spent on their premium videos and paid live
+        streams; VideosKE keeps 30%. Free videos don’t earn. Earned tokens can be withdrawn to M-PESA once the minimum is
+        reached. We may withhold earnings from content that breaks these rules.
+      </p>
+      <p>
+        <strong>Referrals.</strong> Members earn a referral reward (currently KSh 50) for each new member who joins with
+        their link and becomes active by buying tokens. Rewards are added to withdrawable earnings. Self-referrals, fake
+        accounts or other abuse cancel the rewards and may get the account banned.
       </p>
       <p>
         <strong>Conduct.</strong> No harassment, threats, spam, or sharing other people’s private information in chat
-        or live streams. Do not re-upload or redistribute videos you bought.
+        or live streams. Do not re-upload or redistribute videos you unlocked.
       </p>
       <p>
         <strong>Reporting.</strong> Use the “Report” button on any video. We review every report.
       </p>
       <p>
-        <strong>Your data.</strong> We store your account details, purchases and messages to run the service. You can
-        ask an admin to delete your account.
+        <strong>Your data.</strong> We store your account details, purchases, earnings and messages to run the service.
+        Card and M-PESA details are handled by Paystack, not stored by us. You can ask an admin to delete your account.
       </p>
     </div>
   );

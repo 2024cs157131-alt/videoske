@@ -1,22 +1,32 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/db';
+import { getSettings } from '@/lib/settings';
 import GoLiveForm from './GoLiveForm';
+import { getPricing, priceLabel } from '@/lib/pricing';
 
 export const dynamic = 'force-dynamic';
 
 export default async function LiveIndex() {
-  const streams = await prisma.liveStream.findMany({
-    where: { isLive: true, host: { banned: false } },
-    include: { host: true },
-    orderBy: { startedAt: 'desc' },
-  });
+  const [streams, s] = await Promise.all([
+    prisma.liveStream.findMany({
+      where: { isLive: true, host: { banned: false } },
+      include: { host: true },
+      orderBy: { startedAt: 'desc' },
+    }),
+    getSettings(),
+  ]);
+  const pricing = await getPricing(s);
   const configured = !!process.env.LIVEKIT_API_KEY && !!process.env.NEXT_PUBLIC_LIVEKIT_URL;
 
   return (
     <div className="stack">
       <div className="card-panel">
         <h1>Go live</h1>
-        {configured ? <GoLiveForm /> : <p className="muted">Live streaming isn’t set up yet (admin: add LiveKit keys).</p>}
+        {configured ? (
+          <GoLiveForm creatorPercent={100 - (parseInt(s.commission_percent, 10) || 30)} />
+        ) : (
+          <p className="muted">Live streaming isn’t set up yet (admin: add LiveKit keys).</p>
+        )}
       </div>
       <div className="card-panel">
         <h2 style={{ marginTop: 0 }}>
@@ -24,15 +34,16 @@ export default async function LiveIndex() {
           Live now
         </h2>
         {streams.length === 0 && <p className="muted">Nobody is live right now.</p>}
-        {streams.map((s) => (
-          <Link key={s.id} href={`/live/${s.id}`} className="list-item">
+        {streams.map((st) => (
+          <Link key={st.id} href={`/live/${st.id}`} className="list-item">
             <div>
-              <strong>{s.title}</strong>
+              <strong>{st.title}</strong>
               <div className="muted">
-                @{s.host.username} · started {s.startedAt.toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' })}
+                @{st.host.username} · started{' '}
+                {st.startedAt.toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' })}
               </div>
             </div>
-            <span className="btn small">Watch</span>
+            <span className="btn small">{st.ticketPrice > 0 ? priceLabel(st.ticketPrice, pricing) : 'Watch free'}</span>
           </Link>
         ))}
       </div>

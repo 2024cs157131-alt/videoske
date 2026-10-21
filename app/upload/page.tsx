@@ -24,13 +24,22 @@ export default async function UploadPage({ searchParams }: { searchParams: { own
   const defaultOwner = owners.find((o) => o.id === searchParams.owner)?.id ?? user.id;
 
   return (
-    <div className="card-panel" style={{ maxWidth: 640, margin: '0 auto' }}>
+    <div className="card-panel" style={{ maxWidth: 680, margin: '0 auto' }}>
       <h1>Upload a video</h1>
       <p className="muted">
-        Each video gets its own random price between Ksh {settings.price_min} and Ksh {settings.price_max}.
-        {user.role !== 'ADMIN' && ' Your video will appear after an admin approves it.'}
+        All videos are reviewed by an admin before they appear. No nudity or sexual content – see the{' '}
+        <a href="/terms" style={{ textDecoration: 'underline' }}>
+          content rules
+        </a>
+        .
       </p>
-      <UploadForm owners={owners} defaultOwner={defaultOwner} />
+      <UploadForm
+        owners={owners}
+        defaultOwner={defaultOwner}
+        priceMin={parseInt(settings.price_min, 10)}
+        priceMax={parseInt(settings.price_max, 10)}
+        creatorPercent={100 - (parseInt(settings.commission_percent, 10) || 30)}
+      />
     </div>
   );
 }

@@ -4,13 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && prisma db push --skip-generate && node prisma/seed.mjs && next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "postinstall": "prisma generate",
     "db:push": "prisma db push",
-    "db:seed": "prisma db seed",
-    "c2b:register": "node --env-file=.env scripts/register-c2b.mjs",
-    "test:mpesa": "node --experimental-strip-types scripts/test-mpesa.ts"
+    "db:seed": "prisma db seed"
   },
   "prisma": {
     "seed": "node prisma/seed.mjs"

@@ -2,12 +2,18 @@ import { randomInt } from 'crypto';
 import { prisma } from './db';
 
 export const DEFAULT_SETTINGS = {
-  till_number: '123456',
-  till_name: 'VIDEOSKE',
-  price_min: '150',
+  price_min: '150', // premium video price range, in tokens
   price_max: '200',
-  daraja_required: 'false',
-  payment_max_age_hours: '24',
+  token_price_kes: '1', // KES per token (1 token = KSh 1)
+  usd_rate: '130', // conversion rate: KES per 1 USD (used to show/charge USD to non-Kenyans)
+  token_packages: '100,200,500,1000,2000', // token amounts users can buy
+  usd_enabled: 'false', // charge non-Kenyans in USD (enable USD on your Paystack account first)
+  commission_percent: '30', // platform share of every token spend
+  payout_min_tokens: '1000', // minimum withdrawal
+  referral_reward: '50', // tokens (= KSh) paid to the referrer per active member
+  referral_min_purchase: '100', // a referred member is "active" after buying at least this many tokens
+  native_ad_every: '8', // show a native ad after every N videos in the feed (0 = off)
+  interstitial_minutes: '10', // show an interstitial at most once every N minutes (0 = off)
 };
 
 export type Settings = typeof DEFAULT_SETTINGS;
@@ -20,10 +26,36 @@ export async function getSettings(): Promise<Settings> {
   return s;
 }
 
-/** Random whole-shilling price between price_min and price_max (inclusive). */
+/** Random whole-token price for a new premium video, between price_min and price_max (inclusive). */
 export async function randomPrice() {
   const s = await getSettings();
   const min = parseInt(s.price_min, 10) || 150;
   const max = Math.max(min, parseInt(s.price_max, 10) || 200);
   return randomInt(min, max + 1);
 }
+
+export function tokenPackages(s: Settings) {
+  return s.token_packages
+    .split(',')
+    .map((x) => parseInt(x.trim(), 10))
+    .filter((n) => n > 0 && n <= 1_000_000);
+}
+
+export const kesPerToken = (s: Settings) => parseFloat(s.token_price_kes) || 1;
+export const usdRate = (s: Settings) => parseFloat(s.usd_rate) || 130;
+
+/** Price of `tokens` in Paystack subunits (cents). USD is converted from KES with usd_rate. */
+export function packagePrice(s: Settings, tokens: number, currency: 'KES' | 'USD') {
+  const kes = tokens * kesPerToken(s);
+  return Math.round((currency === 'KES' ? kes : kes / usdRate(s)) * 100);
+}
+
+export function commissionPercent(s: Settings) {
+  const c = parseInt(s.commission_percent, 10);
+  return isNaN(c) ? 30 : Math.min(100, Math.max(0, c));
+}
+
+export const money = (subunits: number, currency: string) =>
+  currency === 'USD'
+    ? `$${(subunits / 100).toFixed(2)}`
+    : `KSh ${(subunits / 100).toLocaleString('en-KE', { maximumFractionDigits: 2 })}`;

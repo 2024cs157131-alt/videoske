@@ -6,6 +6,7 @@ import { bad, requireApiUser } from '@/lib/api';
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const r = await requireApiUser();
   if ('error' in r) return r.error;
+  const user = r.user;
 
   const { LIVEKIT_API_KEY, LIVEKIT_API_SECRET, NEXT_PUBLIC_LIVEKIT_URL } = process.env;
   if (!LIVEKIT_API_KEY || !LIVEKIT_API_SECRET || !NEXT_PUBLIC_LIVEKIT_URL) {
@@ -15,10 +16,15 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   const stream = await prisma.liveStream.findUnique({ where: { id: params.id } });
   if (!stream || !stream.isLive) return bad('This stream has ended.', 404);
 
-  const isHost = stream.hostId === r.user.id;
+  const isHost = stream.hostId === user.id;
+  if (stream.ticketPrice > 0 && !isHost && user.role !== 'ADMIN') {
+    const ticket = await prisma.liveTicket.findUnique({ where: { userId_streamId: { userId: user.id, streamId: stream.id } } });
+    if (!ticket) return bad('Buy a ticket to join this stream.', 402);
+  }
+
   const at = new AccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, {
-    identity: r.user.id,
-    name: r.user.displayName,
+    identity: user.id,
+    name: user.displayName,
     ttl: '2h',
   });
   at.addGrant({
