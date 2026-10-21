@@ -13,6 +13,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
 
   const stream = await prisma.liveStream.findUnique({ where: { id: params.id }, include: { host: true } });
   if (!stream || !stream.isLive) return bad('This stream has ended.', 404);
+  if (stream.status !== 'APPROVED') return bad('This stream is waiting for admin approval.', 403);
   if (stream.ticketPrice <= 0 || stream.hostId === user.id || user.role === 'ADMIN') return NextResponse.json({ ok: true });
 
   const commission = commissionPercent(await getSettings());

@@ -2,14 +2,16 @@ import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { getSettings } from '@/lib/settings';
 import GoLiveForm from './GoLiveForm';
+import { endStaleStreams, visibleLiveWhere } from '@/lib/live';
 import { getPricing, priceLabel } from '@/lib/pricing';
 
 export const dynamic = 'force-dynamic';
 
 export default async function LiveIndex() {
+  await endStaleStreams();
   const [streams, s] = await Promise.all([
     prisma.liveStream.findMany({
-      where: { isLive: true, host: { banned: false } },
+      where: visibleLiveWhere,
       include: { host: true },
       orderBy: { startedAt: 'desc' },
     }),

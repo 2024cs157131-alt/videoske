@@ -2,23 +2,28 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
+import { endStaleStreams } from '@/lib/live';
+import { getPricing, priceLabel } from '@/lib/pricing';
 import ActionButton from '@/components/ActionButton';
 import TokenUnlock from '@/components/TokenUnlock';
+import AutoRefresh from '@/components/AutoRefresh';
 import LiveRoom from './LiveRoom';
-import { getPricing, priceLabel } from '@/lib/pricing';
 
 export const dynamic = 'force-dynamic';
 
 export default async function LivePage({ params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!user) redirect(`/login?next=/live/${params.id}`);
+  await endStaleStreams();
   const stream = await prisma.liveStream.findUnique({ where: { id: params.id }, include: { host: true } });
   if (!stream) notFound();
 
   const pricing = await getPricing();
   const isHost = stream.hostId === user.id;
   const isAdmin = user.role === 'ADMIN';
+  const waiting = stream.status === 'PENDING' && !isHost && !isAdmin;
   const needsTicket =
+    !waiting &&
     stream.ticketPrice > 0 &&
     !isHost &&
     !isAdmin &&
@@ -26,6 +31,7 @@ export default async function LivePage({ params }: { params: { id: string } }) {
 
   return (
     <div className="stack">
+      {!isHost && stream.isLive && <AutoRefresh seconds={waiting ? 15 : 30} />}
       <div className="row between">
         <div>
           <h1 style={{ margin: 0 }}>
@@ -36,16 +42,42 @@ export default async function LivePage({ params }: { params: { id: string } }) {
             @{stream.host.username} {stream.ticketPrice > 0 ? `· ticket ${priceLabel(stream.ticketPrice, pricing)}` : '· free stream'}
           </Link>
         </div>
-        {stream.isLive && (isHost || isAdmin) && (
-          <ActionButton
-            url={`/api/live/${stream.id}/end`}
-            label="End stream"
-            className="btn danger"
-            confirmText="End this live stream?"
-            redirectTo="/live"
-          />
-        )}
+        <div className="row">
+          {isAdmin && stream.isLive && stream.status === 'PENDING' && (
+            <ActionButton url={`/api/admin/live/${stream.id}`} body={{ action: 'APPROVE' }} label="Approve" className="btn small ok" />
+          )}
+          {isAdmin && stream.isLive && (
+            <>
+              <ActionButton
+                url={`/api/admin/live/${stream.id}`}
+                body={{ action: 'FLAG' }}
+                label="Flag sexual content"
+                className="btn small danger"
+                confirmText="Flag as sexual content and end this stream?"
+                redirectTo="/admin"
+              />
+              <ActionButton
+                url={`/api/admin/live/${stream.id}`}
+                body={{ action: 'REJECT' }}
+                label="Reject"
+                className="btn small ghost"
+                confirmText="Reject and end this stream?"
+                redirectTo="/admin"
+              />
+            </>
+          )}
+          {stream.isLive && isHost && (
+            <ActionButton
+              url={`/api/live/${stream.id}/end`}
+              label="End stream"
+              className="btn danger"
+              confirmText="End this live stream?"
+              redirectTo="/live"
+            />
+          )}
+        </div>
       </div>
+
       {!stream.isLive ? (
         <div className="card-panel">
           This stream has ended.{' '}
@@ -53,6 +85,8 @@ export default async function LivePage({ params }: { params: { id: string } }) {
             See who’s live
           </Link>
         </div>
+      ) : waiting ? (
+        <div className="card-panel">⏳ This stream is waiting for admin approval. This page updates automatically.</div>
       ) : needsTicket ? (
         <TokenUnlock
           url={`/api/live/${stream.id}/ticket`}
@@ -64,7 +98,7 @@ export default async function LivePage({ params }: { params: { id: string } }) {
           loginNext={`/live/${stream.id}`}
         />
       ) : (
-        <LiveRoom streamId={stream.id} isHost={isHost} />
+        <LiveRoom streamId={stream.id} isHost={isHost} initialStatus={stream.status} />
       )}
     </div>
   );

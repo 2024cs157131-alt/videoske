@@ -10,6 +10,8 @@ import SettingsForm from './SettingsForm';
 import CreateProfileForm from './CreateProfileForm';
 import AdForm from './AdForm';
 import CreditTokens from './CreditTokens';
+import { endStaleStreams } from '@/lib/live';
+import { REPORT_CATEGORIES, type ReportCategory } from '@/lib/reports';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,7 +24,13 @@ export default async function AdminPage() {
   const [settings, pending, profiles, purchases, payouts, ads, reports, users, sales, unlockSums, ticketSums, counts] =
     await Promise.all([
       getSettings(),
-      prisma.video.findMany({ where: { status: 'PENDING' }, include: { owner: true }, orderBy: { createdAt: 'asc' }, take: 30 }),
+      // Flagged queue: videos with open reports, plus hidden videos waiting for a decision
+      prisma.video.findMany({
+        where: { OR: [{ status: 'PENDING' }, { reports: { some: { resolved: false } } }] },
+        include: { owner: true, reports: { where: { resolved: false }, include: { reporter: true }, orderBy: { createdAt: 'desc' } } },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      }),
       prisma.user.findMany({ where: { managedByAdmin: true }, include: { _count: { select: { videos: true } } }, orderBy: { createdAt: 'desc' } }),
       prisma.tokenPurchase.findMany({ include: { user: true }, orderBy: { createdAt: 'desc' }, take: 30 }),
       prisma.payout.findMany({ where: { status: 'PENDING' }, include: { user: true }, orderBy: { createdAt: 'asc' } }),
@@ -34,10 +42,14 @@ export default async function AdminPage() {
       prisma.liveTicket.aggregate({ _sum: { tokens: true, creatorShare: true } }),
       Promise.all([prisma.user.count({ where: { managedByAdmin: false } }), prisma.video.count({ where: { status: 'APPROVED' } })]),
     ]);
-  const [referralSum, views] = await Promise.all([
+  await endStaleStreams();
+  const [referralSum, views, liveNow] = await Promise.all([
     prisma.ledgerEntry.aggregate({ where: { type: 'REFERRAL' }, _sum: { tokens: true }, _count: true }),
     prisma.video.aggregate({ _sum: { views: true } }),
+    prisma.liveStream.findMany({ where: { isLive: true }, include: { host: true }, orderBy: { startedAt: 'asc' } }),
   ]);
+  const pendingLive = liveNow.filter((s) => s.status === 'PENDING');
+  const approvedLive = liveNow.filter((s) => s.status === 'APPROVED');
 
   const spent = (unlockSums._sum.tokens ?? 0) + (ticketSums._sum.tokens ?? 0);
   const creatorShare = (unlockSums._sum.creatorShare ?? 0) + (ticketSums._sum.creatorShare ?? 0);
@@ -49,8 +61,15 @@ export default async function AdminPage() {
     (await prisma.user.findMany({ where: { id: { in: referrerIds } }, select: { id: true, username: true } })).map((r) => [r.id, `@${r.username}`]),
   );
 
-  const pendingWithUrls = await Promise.all(
-    pending.map(async (v) => ({ ...v, url: await signedVideoUrl(v.videoPath, 3600).catch(() => null) })),
+  // Most urgent first: possible minors, then sexual-content reports, then by number of reports
+  const urgency = (v: (typeof pending)[number]) =>
+    (v.reports.some((r) => r.category === 'UNDERAGE') ? 1000 : 0) +
+    (v.reports.some((r) => r.category === 'SEXUAL') ? 100 : 0) +
+    v.reports.length;
+  const flagged = await Promise.all(
+    [...pending]
+      .sort((a, b) => urgency(b) - urgency(a))
+      .map(async (v) => ({ ...v, url: await signedVideoUrl(v.videoPath, 3600).catch(() => null) })),
   );
 
   return (
@@ -122,45 +141,89 @@ export default async function AdminPage() {
       </section>
 
       <section className="card-panel">
-        <h2 style={{ marginTop: 0 }}>Videos waiting for approval ({pending.length})</h2>
-        <p className="muted small">Approve only content with no nudity or sexual content, where everyone shown is clearly an adult.</p>
-        {pending.length === 0 && <p className="muted">Nothing to review.</p>}
-        {pendingWithUrls.map((v) => (
-          <div key={v.id} className="list-item" style={{ alignItems: 'flex-start', flexWrap: 'wrap' }}>
-            <div style={{ flex: '1 1 260px' }}>
-              <Link href={`/v/${v.id}`}>
-                <strong>{v.title}</strong>
-              </Link>
+        <h2 style={{ marginTop: 0 }}>
+          <span className="live-dot" />
+          Live streams waiting for approval ({pendingLive.length})
+        </h2>
+        <p className="muted small">Open the stream to watch it first. Viewers can join only after you approve.</p>
+        {pendingLive.length === 0 && <p className="muted">No streams waiting.</p>}
+        {pendingLive.map((s) => (
+          <div key={s.id} className="list-item">
+            <div>
+              <strong>{s.title}</strong>
               <div className="muted">
-                @{v.owner.username} · {v.isPremium ? `Premium · KSh ${v.price}` : 'Free'} · {fmt(v.createdAt)}
+                @{s.host.username} · {s.ticketPrice > 0 ? `ticket KSh ${s.ticketPrice}` : 'free'} · started {fmt(s.startedAt)}
               </div>
-              {v.url && <video src={v.url} controls preload="metadata" style={{ maxHeight: 220, marginTop: 8, borderRadius: 8 }} />}
             </div>
             <div className="row">
-              <ActionButton url={`/api/admin/videos/${v.id}`} body={{ status: 'APPROVED' }} label="Approve" className="btn small ok" />
-              <ActionButton url={`/api/admin/videos/${v.id}`} body={{ status: 'REJECTED' }} label="Reject" className="btn small danger" />
+              <Link href={`/live/${s.id}`} className="btn small ghost">
+                Watch
+              </Link>
+              <ActionButton url={`/api/admin/live/${s.id}`} body={{ action: 'APPROVE' }} label="Approve" className="btn small ok" />
+              <ActionButton url={`/api/admin/live/${s.id}`} body={{ action: 'FLAG' }} label="🚩 Sexual – end" className="btn small danger" confirmText="Flag as sexual content and end this stream?" />
+              <ActionButton url={`/api/admin/live/${s.id}`} body={{ action: 'REJECT' }} label="Reject" className="btn small ghost" confirmText="Reject and end this stream?" />
             </div>
           </div>
         ))}
+        {approvedLive.length > 0 && (
+          <>
+            <h3 style={{ marginBottom: 6 }}>Live now ({approvedLive.length})</h3>
+            {approvedLive.map((s) => (
+              <div key={s.id} className="list-item">
+                <div>
+                  <strong>{s.title}</strong>
+                  <div className="muted">@{s.host.username} · started {fmt(s.startedAt)}</div>
+                </div>
+                <div className="row">
+                  <Link href={`/live/${s.id}`} className="btn small ghost">
+                    Watch
+                  </Link>
+                  <ActionButton url={`/api/admin/live/${s.id}`} body={{ action: 'FLAG' }} label="🚩 Sexual – end" className="btn small danger" confirmText="Flag as sexual content and end this stream?" />
+                </div>
+              </div>
+            ))}
+          </>
+        )}
       </section>
 
       <section className="card-panel">
-        <h2 style={{ marginTop: 0 }}>Open reports ({reports.length})</h2>
-        {reports.length === 0 && <p className="muted">No open reports.</p>}
-        {reports.map((r) => (
-          <div key={r.id} className="list-item">
-            <div>
-              <Link href={`/v/${r.videoId}`}>
-                <strong>{r.video.title}</strong>
-              </Link>
+        <h2 style={{ marginTop: 0 }}>🚩 Flagged content ({flagged.length})</h2>
+        <p className="muted small">
+          Videos publish straight away. Ones that users report show up here. Videos reported {settings.auto_hide_reports}+
+          times, or reported as showing someone under 18, are hidden automatically until you decide. Delete anything
+          sexual or illegal. Add a warning for mature content that’s allowed. Dismiss reports that are wrong.
+        </p>
+        {flagged.length === 0 && <p className="muted">Nothing flagged. 🎉</p>}
+        {flagged.map((v) => (
+          <div key={v.id} className="list-item" style={{ alignItems: 'flex-start', flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 280px' }}>
+              <Link href={`/v/${v.id}`}>
+                <strong>{v.title}</strong>
+              </Link>{' '}
+              {v.status === 'PENDING' && <span className="badge" style={{ background: 'var(--warn)', color: '#000' }}>hidden</span>}{' '}
+              {v.sensitive && <span className="badge" style={{ background: '#555' }}>⚠ warning</span>}
               <div className="muted">
-                by @{r.reporter.username} · {fmt(r.createdAt)}
+                @{v.owner.username} · {v.isPremium ? `Premium · KSh ${v.price}` : 'Free'} · {fmt(v.createdAt)} · {v.reports.length} report
+                {v.reports.length === 1 ? '' : 's'}
               </div>
-              <div>{r.reason}</div>
+              {v.reports.slice(0, 5).map((r) => (
+                <div key={r.id} className="small" style={{ marginTop: 4 }}>
+                  <strong>{REPORT_CATEGORIES[r.category as ReportCategory] ?? r.category}</strong> – @{r.reporter.username}
+                  {r.reason && r.reason !== REPORT_CATEGORIES[r.category as ReportCategory] ? `: “${r.reason}”` : ''}
+                </div>
+              ))}
+              {v.url && <video src={v.url} controls preload="metadata" style={{ maxHeight: 220, marginTop: 8, borderRadius: 8 }} />}
             </div>
             <div className="row">
-              <ActionButton url={`/api/admin/videos/${r.videoId}`} body={{ status: 'REJECTED' }} label="Remove video" className="btn small danger" />
-              <ActionButton url={`/api/admin/reports/${r.id}`} label="Resolve" className="btn small ghost" />
+              <ActionButton
+                url={`/api/admin/videos/${v.id}`}
+                body={{ action: 'DELETE' }}
+                label="🗑 Delete"
+                className="btn small danger"
+                confirmText="Delete this video and its files for good?"
+              />
+              <ActionButton url={`/api/admin/videos/${v.id}`} body={{ action: 'WARN' }} label="⚠ Keep with warning" className="btn small" />
+              <ActionButton url={`/api/admin/videos/${v.id}`} body={{ action: 'DISMISS' }} label="Dismiss" className="btn small ghost" />
             </div>
           </div>
         ))}

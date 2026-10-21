@@ -7,7 +7,6 @@ export default function GoLiveForm({ creatorPercent }: { creatorPercent: number 
   const router = useRouter();
   const [title, setTitle] = useState('');
   const [ticketPrice, setTicketPrice] = useState('0');
-  const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -19,7 +18,7 @@ export default function GoLiveForm({ creatorPercent }: { creatorPercent: number 
         setBusy(true);
         setError('');
         try {
-          const { id } = await postJSON<{ id: string }>('/api/live', { title, ticketPrice: parseInt(ticketPrice, 10) || 0, consent });
+          const { id } = await postJSON<{ id: string }>('/api/live', { title, ticketPrice: parseInt(ticketPrice, 10) || 0 });
           router.push(`/live/${id}`);
         } catch (err) {
           setError((err as Error).message);
@@ -38,15 +37,11 @@ export default function GoLiveForm({ creatorPercent }: { creatorPercent: number 
         </div>
       </div>
       <p className="muted small" style={{ margin: 0 }}>
-        Paid streams: you earn {creatorPercent}% of every ticket.
+        Paid streams: you earn {creatorPercent}% of every ticket. An admin approves your stream before viewers can join.
       </p>
-      <label className="check">
-        <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
-        <span>I’m 18+ and my stream will contain no nudity or sexual content.</span>
-      </label>
       {error && <div className="error">{error}</div>}
       <div>
-        <button className="btn" disabled={busy || !consent}>
+        <button className="btn" disabled={busy}>
           {busy ? 'Starting…' : '● Start live'}
         </button>
       </div>

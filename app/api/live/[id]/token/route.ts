@@ -17,6 +17,9 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   if (!stream || !stream.isLive) return bad('This stream has ended.', 404);
 
   const isHost = stream.hostId === user.id;
+  if (stream.status !== 'APPROVED' && !isHost && user.role !== 'ADMIN') {
+    return bad('This stream is waiting for admin approval.', 403);
+  }
   if (stream.ticketPrice > 0 && !isHost && user.role !== 'ADMIN') {
     const ticket = await prisma.liveTicket.findUnique({ where: { userId_streamId: { userId: user.id, streamId: stream.id } } });
     if (!ticket) return bad('Buy a ticket to join this stream.', 402);

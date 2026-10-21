@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { bad, readJson, requireApiUser, resolveOwner } from '@/lib/api';
-import { randomPrice } from '@/lib/settings';
+import { getSettings, randomPrice } from '@/lib/settings';
 
 export async function POST(req: Request) {
   const r = await requireApiUser();
@@ -22,12 +22,13 @@ export async function POST(req: Request) {
 
   if (title.length < 3 || title.length > 120) return bad('Title must be 3–120 characters.');
   if (b.consent !== true) {
-    return bad('Confirm everyone shown is 18+ and consented, and that the video has no nudity or sexual content.');
+    return bad('Confirm everyone shown is 18+, agreed to being filmed and published, and that you own the rights.');
   }
   if (!videoPath.startsWith(`${ownerId}/video/`)) return bad('Upload the video file first.');
   if (thumbPath && !thumbPath.startsWith(`${ownerId}/thumb/`)) return bad('Invalid thumbnail.');
   if (previewPath && !previewPath.startsWith(`${ownerId}/preview/`)) return bad('Invalid preview clip.');
 
+  const autoPublish = (await getSettings()).auto_publish === 'true';
   const video = await prisma.video.create({
     data: {
       title,
@@ -38,8 +39,9 @@ export async function POST(req: Request) {
       thumbPath,
       previewPath: isPremium ? previewPath : null,
       ownerId,
-      // Every video is reviewed by an admin first; admin uploads go live straight away.
-      status: user.role === 'ADMIN' ? 'APPROVED' : 'PENDING',
+      sensitive: b.sensitive === true,
+      // Published straight away when auto-publish is on (default); otherwise an admin reviews it first.
+      status: user.role === 'ADMIN' || autoPublish ? 'APPROVED' : 'PENDING',
     },
   });
   return NextResponse.json({ id: video.id, price: video.price, status: video.status });

@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import Nav from '@/components/Nav';
 import AgeGate from '@/components/AgeGate';
 import RefCapture from '@/components/RefCapture';
+import PauseOnHide from '@/components/PauseOnHide';
 
 export const metadata: Metadata = {
   title: 'VideosKE',
@@ -16,6 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <AgeGate />
         <RefCapture />
+        <PauseOnHide />
         <Nav />
         <main className="container">{children}</main>
         <footer className="footer">

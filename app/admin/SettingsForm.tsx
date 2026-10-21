@@ -4,7 +4,16 @@ import { useRouter } from 'next/navigation';
 import { postJSON } from '@/lib/client';
 import type { Settings } from '@/lib/settings';
 
+const YES_NO: Partial<Record<keyof Settings, [string, string]>> = {
+  usd_enabled: ['No – everyone pays in KES (foreign cards still work)', 'Yes – non-Kenyans pay in USD'],
+  auto_publish: ['No – I review every video first', 'Yes – videos go live straight away'],
+  auto_approve_live: ['No – I approve each live stream', 'Yes – streams go live straight away'],
+};
+
 const FIELDS: { key: keyof Settings; label: string; type?: 'select' }[] = [
+  { key: 'auto_publish', label: 'Publish videos without review', type: 'select' },
+  { key: 'auto_hide_reports', label: 'Auto-hide a video after N reports (0 = never)' },
+  { key: 'auto_approve_live', label: 'Live streams without approval', type: 'select' },
   { key: 'token_price_kes', label: 'KSh per token' },
   { key: 'usd_rate', label: 'Conversion rate: KSh per 1 USD' },
   { key: 'token_packages', label: 'Token packages (comma separated)' },
@@ -49,8 +58,8 @@ export default function SettingsForm({ initial }: { initial: Settings }) {
             <label>{f.label}</label>
             {f.type === 'select' ? (
               <select value={s[f.key]} onChange={(e) => setS({ ...s, [f.key]: e.target.value })}>
-                <option value="false">No – everyone pays in KES (foreign cards still work)</option>
-                <option value="true">Yes – non-Kenyans pay in USD</option>
+                <option value="false">{YES_NO[f.key]?.[0] ?? 'No'}</option>
+                <option value="true">{YES_NO[f.key]?.[1] ?? 'Yes'}</option>
               </select>
             ) : (
               <input value={s[f.key]} onChange={(e) => setS({ ...s, [f.key]: e.target.value })} />

@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { postJSON } from '@/lib/client';
 import { uploadFile } from '@/lib/upload';
+import { makeThumbnail, makeTrailer } from '@/lib/media';
 
 type Owner = { id: string; label: string };
 
@@ -24,8 +25,8 @@ export default function UploadForm({
   const [description, setDescription] = useState('');
   const [video, setVideo] = useState<File | null>(null);
   const [thumb, setThumb] = useState<File | null>(null);
-  const [preview, setPreview] = useState<File | null>(null);
   const [consent, setConsent] = useState(false);
+  const [sensitive, setSensitive] = useState(false);
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -36,28 +37,37 @@ export default function UploadForm({
     setError('');
     setBusy(true);
     try {
-      setStatus('Uploading video… (keep this page open)');
-      const videoPath = (await uploadFile('video', video, ownerId)).path;
+      setStatus(isPremium ? 'Uploading video and making the trailer… keep this page open' : 'Uploading video… keep this page open');
+
+      // Upload the full video while the browser makes the thumbnail and (premium only) the trailer
+      const [videoRes, thumbFile, trailerFile] = await Promise.all([
+        uploadFile('video', video, ownerId),
+        thumb ? Promise.resolve(thumb) : makeThumbnail(video),
+        isPremium ? makeTrailer(video) : Promise.resolve(null),
+      ]);
+
       let thumbPath: string | null = null;
       let previewPath: string | null = null;
-      if (thumb) {
+      if (thumbFile) {
         setStatus('Uploading thumbnail…');
-        thumbPath = (await uploadFile('thumb', thumb, ownerId)).path;
+        thumbPath = (await uploadFile('thumb', thumbFile, ownerId)).path;
       }
-      if (isPremium && preview) {
-        setStatus('Uploading preview clip…');
-        previewPath = (await uploadFile('preview', preview, ownerId)).path;
+      if (trailerFile) {
+        setStatus('Uploading trailer…');
+        previewPath = (await uploadFile('preview', trailerFile, ownerId)).path;
       }
+
       setStatus('Saving…');
       const res = await postJSON<{ id: string }>('/api/videos', {
         ownerId,
         title,
         description,
         isPremium,
-        videoPath,
+        videoPath: videoRes.path,
         thumbPath,
         previewPath,
         consent,
+        sensitive,
       });
       window.location.href = `/v/${res.id}`;
     } catch (err) {
@@ -88,7 +98,7 @@ export default function UploadForm({
           <span>
             <strong>Free (public)</strong>
             <br />
-            <span className="muted small">Anyone can watch. Free videos don’t earn.</span>
+            <span className="muted small">Anyone can watch. Shown with a normal thumbnail. Free videos don’t earn.</span>
           </span>
         </label>
         <label className={`radio-card ${isPremium ? 'on' : ''}`}>
@@ -97,7 +107,8 @@ export default function UploadForm({
             <strong>Premium (paid)</strong>
             <br />
             <span className="muted small">
-              Unlocked with tokens ({priceMin}–{priceMax}, set randomly). You earn {creatorPercent}%.
+              Unlocked with tokens (KSh {priceMin}–{priceMax}, set randomly). A greyed-out 8-second trailer is made
+              automatically. You earn {creatorPercent}%.
             </span>
           </span>
         </label>
@@ -121,20 +132,21 @@ export default function UploadForm({
         />
       </div>
       <div>
-        <label>Thumbnail image (JPG/PNG/WebP) – shown to everyone</label>
+        <label>Thumbnail image (optional – we take one from the video if you skip this)</label>
         <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setThumb(e.target.files?.[0] ?? null)} />
       </div>
-      {isPremium && (
-        <div>
-          <label>Preview clip (optional, 10–30 seconds) – shown before unlocking</label>
-          <input type="file" accept="video/mp4,video/webm,.m4v" onChange={(e) => setPreview(e.target.files?.[0] ?? null)} />
-        </div>
-      )}
+      <label className="check">
+        <input type="checkbox" checked={sensitive} onChange={(e) => setSensitive(e.target.checked)} />
+        <span>
+          <strong>Add a content warning</strong> – mature content such as strong language, violence or partying. Viewers
+          tap “Show” before it plays.
+        </span>
+      </label>
       <label className="check">
         <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
         <span>
-          I confirm everyone in this video is 18 or older and agreed to being filmed and published, the video contains{' '}
-          <strong>no nudity or sexual content</strong>, and I own the rights to it.
+          I confirm everyone in this video is 18 or older and agreed to being filmed and published, and I own the rights
+          to it. Sexual content isn’t allowed and is deleted when reported.
         </span>
       </label>
       {error && <div className="error">{error}</div>}

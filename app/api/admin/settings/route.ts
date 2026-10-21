@@ -24,7 +24,10 @@ export async function POST(req: Request) {
   if (isNaN(int(v.referral_reward)) || isNaN(int(v.referral_min_purchase))) return bad('Referral settings must be whole numbers.');
   const pkgs = v.token_packages.split(',').map((x) => int(x.trim()));
   if (!pkgs.length || pkgs.some((n) => !(n > 0))) return bad('Token packages: whole numbers separated by commas, e.g. 100,500,1000');
-  if (!['true', 'false'].includes(v.usd_enabled)) return bad('Invalid USD setting.');
+  if (![v.usd_enabled, v.auto_publish, v.auto_approve_live].every((x) => ['true', 'false'].includes(x))) {
+    return bad('Invalid yes/no setting.');
+  }
+  if (!(int(v.auto_hide_reports) >= 0)) return bad('Auto-hide must be a whole number (0 = never).');
   const commission = int(v.commission_percent);
   if (!(commission >= 0 && commission <= 100)) return bad('Commission must be 0–100%.');
   if (!(int(v.payout_min_tokens) >= 1)) return bad('Minimum payout must be at least 1 token.');

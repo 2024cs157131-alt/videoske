@@ -27,7 +27,8 @@ export default async function UploadPage({ searchParams }: { searchParams: { own
     <div className="card-panel" style={{ maxWidth: 680, margin: '0 auto' }}>
       <h1>Upload a video</h1>
       <p className="muted">
-        All videos are reviewed by an admin before they appear. No nudity or sexual content – see the{' '}
+        Videos are published straight away. Add a content warning if yours has mature content. Reported videos are
+        reviewed, and sexual content is deleted – see the{' '}
         <a href="/terms" style={{ textDecoration: 'underline' }}>
           content rules
         </a>

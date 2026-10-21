@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { getSettings } from '@/lib/settings';
 import { pickAds } from '@/lib/ads';
+import { endStaleStreams, visibleLiveWhere } from '@/lib/live';
 import { getPricing, priceLabel } from '@/lib/pricing';
 import VideoCard from '@/components/VideoCard';
 import NativeAd from '@/components/NativeAd';
@@ -14,6 +15,7 @@ export default async function Home({ searchParams }: { searchParams: { q?: strin
   const q = (searchParams.q ?? '').trim();
   const tab = searchParams.tab === 'free' ? 'free' : searchParams.tab === 'premium' ? 'premium' : 'all';
 
+  await endStaleStreams();
   const [videos, live, settings] = await Promise.all([
     prisma.video.findMany({
       where: {
@@ -28,7 +30,7 @@ export default async function Home({ searchParams }: { searchParams: { q?: strin
       orderBy: { createdAt: 'desc' },
       take: 60,
     }),
-    prisma.liveStream.findMany({ where: { isLive: true, host: { banned: false } }, include: { host: true }, take: 8 }),
+    prisma.liveStream.findMany({ where: visibleLiveWhere, include: { host: true }, take: 8 }),
     getSettings(),
   ]);
 

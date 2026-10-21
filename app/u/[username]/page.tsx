@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import VideoCard from '@/components/VideoCard';
 import { getPricing } from '@/lib/pricing';
+import { endStaleStreams } from '@/lib/live';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,12 +17,13 @@ export default async function ProfilePage({ params }: { params: { username: stri
   const isMe = user?.id === profile.id;
   const canSeeAll = isMe || isAdmin;
 
+  await endStaleStreams();
   const [videos, live] = await Promise.all([
     prisma.video.findMany({
       where: { ownerId: profile.id, ...(canSeeAll ? {} : { status: 'APPROVED' }) },
       orderBy: { createdAt: 'desc' },
     }),
-    prisma.liveStream.findFirst({ where: { hostId: profile.id, isLive: true } }),
+    prisma.liveStream.findFirst({ where: { hostId: profile.id, isLive: true, status: 'APPROVED' } }),
   ]);
 
   const pricing = await getPricing();

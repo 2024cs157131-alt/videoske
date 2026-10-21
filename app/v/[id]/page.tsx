@@ -11,6 +11,8 @@ import ActionButton from '@/components/ActionButton';
 import TokenUnlock from '@/components/TokenUnlock';
 import Interstitial from '@/components/Interstitial';
 import VideoPlayer from '@/components/VideoPlayer';
+import Trailer from '@/components/Trailer';
+import SensitiveGate from '@/components/SensitiveGate';
 import { fmtViews } from '@/components/VideoCard';
 import { getPricing, priceLabel } from '@/lib/pricing';
 
@@ -45,26 +47,38 @@ export default async function VideoPage({ params }: { params: { id: string } }) 
     <div className="stack">
       <Interstitial ad={ad ? { id: ad.id, title: ad.title, body: ad.body, imageUrl: ad.imageUrl } : null} minutes={minutes} />
 
-      {video.status !== 'APPROVED' && (
+      {video.status === 'PENDING' && (
+        <div className="moderation-note">
+          ⏳ {video.moderationNote ?? 'Waiting for admin review'} – only you and admins can see this video right now.
+        </div>
+      )}
+      {video.status === 'REJECTED' && (
         <div className="error">
-          Status: <strong>{video.status}</strong> – only you and admins can see this video until it is approved.
+          {video.flaggedSexual ? '🚩 Flagged as sexual content – not published.' : 'Not published.'}{' '}
+          {video.moderationNote && !video.flaggedSexual ? video.moderationNote : ''}
         </div>
       )}
 
       {canWatch && src ? (
         <div className="player">
-          <VideoPlayer id={video.id} src={src} poster={thumb ?? undefined} />
+          {video.sensitive ? (
+            <SensitiveGate>
+              <VideoPlayer id={video.id} src={src} poster={thumb ?? undefined} />
+            </SensitiveGate>
+          ) : (
+            <VideoPlayer id={video.id} src={src} poster={thumb ?? undefined} />
+          )}
         </div>
       ) : (
         <div className="player">
-          {preview ? (
-            <video src={preview} poster={thumb ?? undefined} autoPlay muted loop playsInline />
+          {video.isPremium && preview ? (
+            <Trailer src={preview} poster={thumb ?? undefined} />
           ) : thumb ? (
-            <img src={thumb} alt="" className={video.isPremium ? 'blur' : ''} />
+            <img src={thumb} alt="" className={video.isPremium ? 'greyed' : ''} />
           ) : (
             <div className="placeholder" />
           )}
-          {preview && <span className="preview-tag">Preview</span>}
+          {video.isPremium && preview && <span className="preview-tag">Trailer</span>}
           <span className="lock-badge">
             {video.isPremium ? `🔒 Premium · ${priceLabel(video.price, pricing)}` : '▶ Free – log in to watch'}
           </span>
@@ -74,7 +88,8 @@ export default async function VideoPage({ params }: { params: { id: string } }) 
       <div className="row between">
         <div>
           <h1 style={{ margin: 0 }}>
-            {video.title} {!video.isPremium && <span className="badge" style={{ background: '#2b6cdf' }}>FREE</span>}
+            {video.title} {!video.isPremium && <span className="badge" style={{ background: '#2b6cdf' }}>FREE</span>}{' '}
+            {video.sensitive && <span className="badge" style={{ background: '#555' }}>⚠ Sensitive</span>}
           </h1>
           <Link href={`/u/${video.owner.username}`} className="muted">
             @{video.owner.username} · {video.owner.displayName}
@@ -84,15 +99,24 @@ export default async function VideoPage({ params }: { params: { id: string } }) 
         <div className="row">
           {user && !isOwner && <ReportButton videoId={video.id} />}
           {isAdmin && video.status !== 'APPROVED' && (
-            <ActionButton url={`/api/admin/videos/${video.id}`} body={{ status: 'APPROVED' }} label="Approve" className="btn small ok" />
+            <ActionButton url={`/api/admin/videos/${video.id}`} body={{ action: 'DISMISS' }} label="Publish" className="btn small ok" />
           )}
-          {isAdmin && video.status !== 'REJECTED' && (
+          {isAdmin && (
             <ActionButton
               url={`/api/admin/videos/${video.id}`}
-              body={{ status: 'REJECTED' }}
-              label="Reject / remove"
+              body={{ action: video.sensitive ? 'UNWARN' : 'WARN' }}
+              label={video.sensitive ? 'Remove warning' : '⚠ Add warning'}
+              className="btn small ghost"
+            />
+          )}
+          {isAdmin && (
+            <ActionButton
+              url={`/api/admin/videos/${video.id}`}
+              body={{ action: 'DELETE' }}
+              label="🗑 Delete"
               className="btn small danger"
-              confirmText="Remove this video from the site?"
+              confirmText="Delete this video and its files for good?"
+              redirectTo="/admin"
             />
           )}
         </div>

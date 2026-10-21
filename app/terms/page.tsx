@@ -7,10 +7,11 @@ export default function Terms() {
         VideosKE. By registering you confirm your date of birth is true.
       </p>
       <p>
-        <strong>Content rules.</strong> Free and premium videos and live streams must not contain nudity, sexual acts,
-        sexually explicit material or sexual services. Mature themes (e.g. strong language, nightlife, fitness, fashion)
-        are allowed for our 18+ audience. Every upload is reviewed by an admin before it appears. Breaking these rules
-        gets content removed and accounts banned.
+        <strong>Content rules.</strong> Videos are published straight away. Mature content (strong language, violence,
+        nightlife, etc.) is allowed with a content warning, which the uploader or an admin can add. Nudity, sexual acts,
+        sexually explicit material and sexual services are not allowed, warning or not, and are deleted when reported.
+        Videos that get several reports, or a report that someone may be under 18, are hidden until an admin reviews
+        them. Breaking these rules gets content deleted and accounts banned.
       </p>
       <p>
         <strong>Consent of everyone shown.</strong> You may only upload or stream content in which every person is 18 or
