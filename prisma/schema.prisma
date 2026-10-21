@@ -1,0 +1,162 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum VideoStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id             String           @id @default(cuid())
+  username       String           @unique
+  email          String?          @unique
+  passwordHash   String?
+  displayName    String
+  bio            String?
+  dob            DateTime
+  consentAt      DateTime
+  role           Role             @default(USER)
+  managedByAdmin Boolean          @default(false) // profile created by admin (no login)
+  banned         Boolean          @default(false)
+  createdAt      DateTime         @default(now())
+  videos         Video[]
+  purchases      Purchase[]
+  attempts       PaymentAttempt[]
+  sentMessages   Message[]        @relation("sent")
+  inbox          Message[]        @relation("received")
+  streams        LiveStream[]
+  comments       Comment[]
+  reports        Report[]
+}
+
+model Video {
+  id          String           @id @default(cuid())
+  title       String
+  description String?
+  price       Int // random Ksh amount between price_min and price_max, set on upload
+  videoPath   String // private bucket - only served to buyers via short-lived signed URL
+  thumbPath   String? // public bucket
+  previewPath String? // public bucket - short teaser clip
+  status      VideoStatus      @default(PENDING)
+  ownerId     String
+  owner       User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt   DateTime         @default(now())
+  purchases   Purchase[]
+  attempts    PaymentAttempt[]
+  comments    Comment[]
+  reports     Report[]
+
+  @@index([status, createdAt])
+  @@index([ownerId])
+}
+
+model Purchase {
+  id         String   @id @default(cuid())
+  userId     String
+  videoId    String
+  amount     Int
+  mpesaCode  String   @unique // each M-PESA code can unlock only once, ever
+  mpesaDate  DateTime
+  tillName   String
+  rawMessage String
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video      Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, videoId])
+}
+
+model PaymentAttempt {
+  id         String   @id @default(cuid())
+  userId     String
+  videoId    String
+  rawMessage String
+  reason     String
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video      Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+// Filled by the Safaricom Daraja C2B confirmation callback
+model MpesaTransaction {
+  id        String   @id @default(cuid())
+  transId   String   @unique
+  amount    Float
+  shortCode String
+  transTime DateTime
+  msisdn    String?
+  firstName String?
+  raw       Json
+  createdAt DateTime @default(now())
+}
+
+model Message {
+  id         String    @id @default(cuid())
+  senderId   String
+  receiverId String
+  body       String
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+  sender     User      @relation("sent", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver   User      @relation("received", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@index([senderId, receiverId, createdAt])
+  @@index([receiverId, createdAt])
+}
+
+model LiveStream {
+  id        String    @id @default(cuid())
+  title     String
+  roomName  String    @unique
+  hostId    String
+  host      User      @relation(fields: [hostId], references: [id], onDelete: Cascade)
+  isLive    Boolean   @default(true)
+  startedAt DateTime  @default(now())
+  endedAt   DateTime?
+
+  @@index([isLive])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  body      String
+  userId    String
+  videoId   String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video     Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([videoId, createdAt])
+}
+
+model Report {
+  id         String   @id @default(cuid())
+  reason     String
+  reporterId String
+  videoId    String
+  resolved   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  reporter   User     @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  video      Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+}
+
+// Key/value settings editable from the admin dashboard (till number, till name, prices...)
+model Setting {
+  key   String @id
+  value String
+}

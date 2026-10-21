@@ -1,0 +1,39 @@
+{
+  "name": "videoske",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "prisma generate && next build",
+    "start": "next start",
+    "postinstall": "prisma generate",
+    "db:push": "prisma db push",
+    "db:seed": "prisma db seed",
+    "c2b:register": "node --env-file=.env scripts/register-c2b.mjs",
+    "test:mpesa": "node --experimental-strip-types scripts/test-mpesa.ts"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.mjs"
+  },
+  "dependencies": {
+    "@livekit/components-react": "^2.6.0",
+    "@livekit/components-styles": "^1.1.0",
+    "@prisma/client": "^5.22.0",
+    "@supabase/supabase-js": "^2.45.0",
+    "bcryptjs": "^2.4.3",
+    "jose": "^5.9.0",
+    "livekit-client": "^2.5.0",
+    "livekit-server-sdk": "^2.7.0",
+    "next": "^14.2.25",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "prisma": "^5.22.0",
+    "typescript": "^5"
+  }
+}
