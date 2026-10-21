@@ -12,6 +12,9 @@ export const DEFAULT_SETTINGS = {
   payout_min_tokens: '1000', // minimum withdrawal
   referral_reward: '50', // tokens (= KSh) paid to the referrer per active member
   referral_min_purchase: '100', // a referred member is "active" after buying at least this many tokens
+  auto_publish: 'true', // new videos go live without admin review
+  auto_hide_reports: '3', // hide a video once it has this many open reports (0 = never)
+  auto_approve_live: 'false', // live streams go live without admin approval
   native_ad_every: '8', // show a native ad after every N videos in the feed (0 = off)
   interstitial_minutes: '10', // show an interstitial at most once every N minutes (0 = off)
 };

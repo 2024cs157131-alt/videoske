@@ -90,6 +90,9 @@ model Video {
   thumbPath   String? // public bucket
   previewPath String? // public bucket - short teaser clip
   status      VideoStatus @default(PENDING)
+  flaggedSexual  Boolean  @default(false) // admin flagged as sexual content (always removed)
+  sensitive      Boolean  @default(false) // show a "sensitive content" warning before viewing
+  moderationNote String? // reason shown to the creator when rejected
   views       Int         @default(0)
   ownerId     String
   owner       User        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
@@ -192,6 +195,9 @@ model LiveStream {
   hostId      String
   host        User         @relation(fields: [hostId], references: [id], onDelete: Cascade)
   ticketPrice Int          @default(0) // tokens to join (0 = free)
+  status        VideoStatus @default(PENDING) // viewers can join only after admin approval
+  flaggedSexual Boolean     @default(false)
+  lastSeenAt    DateTime    @default(now()) // host heartbeat; stale streams end automatically
   isLive      Boolean      @default(true)
   startedAt   DateTime     @default(now())
   endedAt     DateTime?
@@ -227,6 +233,7 @@ model Comment {
 
 model Report {
   id         String   @id @default(cuid())
+  category   String   @default("OTHER") // SEXUAL, UNDERAGE, SENSITIVE, STOLEN, OTHER
   reason     String
   reporterId String
   videoId    String
@@ -234,6 +241,8 @@ model Report {
   createdAt  DateTime @default(now())
   reporter   User     @relation(fields: [reporterId], references: [id], onDelete: Cascade)
   video      Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([videoId, resolved])
 }
 
 // Key/value settings editable from the admin dashboard

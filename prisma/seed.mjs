@@ -16,6 +16,9 @@ const defaults = {
   payout_min_tokens: '1000',
   referral_reward: '50',
   referral_min_purchase: '100',
+  auto_publish: 'true',
+  auto_hide_reports: '3',
+  auto_approve_live: 'false',
   native_ad_every: '8',
   interstitial_minutes: '10',
 };

@@ -20,6 +20,23 @@
 
 ## Updating your existing site (you already deployed v1)
 
+### Update 005 (publish without review, content warnings, flagged queue)
+Run `prisma/migrate-005.sql`, then upload the new code. Notes:
+- **Videos publish straight away.** Admin → Settings → "Publish videos without review" switches this back off if you ever want to.
+- **Content warnings, X-style.** Uploaders can tick "Add a content warning", and admin can add or remove one on any video. Warned videos are blurred on cards and need a tap on "Show" before playing.
+- **Users report** with a reason: sexual content, possible under-18, needs a warning, stolen, or other.
+- **Auto-hide.** A video is hidden after 3 open reports (adjustable), or immediately when someone reports a possible minor. It stays hidden until you decide.
+- **Admin → 🚩 Flagged content** lists reported and hidden videos, most urgent first. For each one, choose **Delete** (removes the video and its files for good), **Keep with warning**, or **Dismiss**.
+- Live streams still need approval by default. Change this with "Live streams without approval".
+
+### Update 004 (live approval, sexual-content flags, trailers, pause/end behaviour)
+Run `prisma/migrate-004.sql` in Supabase's SQL Editor, then upload the new code. Notes:
+- **Live streams start as "waiting for approval".** Admin sees them under **Admin → Live streams waiting for approval**, can open and watch them, then Approve, flag sexual content (which ends the stream) or Reject. Viewers can join only after approval.
+- **The host's stream pauses** (camera and mic off) when they switch app or tab. It **ends** when they navigate to another page, or about 2 minutes after they close the tab or lose connection.
+- **Videos pause** when the viewer switches app or tab.
+- **Every upload is reviewed.** Admin can Approve & publish, flag sexual content (removed, and the creator sees why), or Reject.
+- **Premium videos get an automatic greyed-out 8-second trailer**, made in the uploader's browser. If the browser can't record video (some older iPhones), the greyed thumbnail is used instead. Free videos show a normal thumbnail with no trailer. A thumbnail is taken from the video automatically if none is uploaded.
+
 ### Update 003 (views, referrals, USD pricing)
 In Supabase's SQL Editor, run `prisma/migrate-003.sql` (after `migrate-002.sql`). Then upload the new code to GitHub as in Step 4. No new Vercel variables are needed.
 
@@ -28,7 +45,7 @@ In Supabase's SQL Editor, run `prisma/migrate-003.sql` (after `migrate-002.sql`)
 2. Open `prisma/migrate-002.sql`, copy all of it, paste it in, and click **Run**.
 3. You should see **"Success. No rows returned"**. This step removes the old M-PESA SMS tables.
 
-> New installs: run `prisma/setup.sql`, then `prisma/migrate-002.sql`, then `prisma/migrate-003.sql`.
+> New installs: run `prisma/setup.sql`, then `prisma/migrate-002.sql`, then `prisma/migrate-003.sql`, then `prisma/migrate-004.sql`, then `prisma/migrate-005.sql`.
 
 ### Step 2 – Add the Paystack keys to Vercel
 **Vercel → your project → Settings → Environment Variables**, add:
