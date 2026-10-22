@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import VerifiedBadge from './VerifiedBadge';
 import type { User, Video } from '@prisma/client';
 import { publicUrl } from '@/lib/storage';
 import { priceLabel, type Pricing } from '@/lib/pricing';
@@ -42,7 +43,11 @@ export default function VideoCard({
       <div className="card-body">
         <div className="title">{v.title}</div>
         <div className="muted">
-          {v.owner ? `@${v.owner.username} · ` : ''}
+          {v.owner && (
+            <>
+              @{v.owner.username} {v.owner.verified && <VerifiedBadge size={12} />} ·{' '}
+            </>
+          )}
           {fmtViews(v.views)} view{v.views === 1 ? '' : 's'}
         </div>
       </div>

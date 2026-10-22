@@ -31,4 +31,19 @@ export function verifySignature(raw: string, signature: string | null) {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-export type PaystackTxn = { status: string; amount: number; currency: string; channel?: string; reference: string };
+export type PaystackTxn = {
+  status: string;
+  amount: number;
+  currency: string;
+  channel?: string;
+  reference: string;
+  customer?: { phone?: string | null } | null; // for M-PESA payments: the number that paid
+  authorization?: { bank?: string | null; last4?: string | null; brand?: string | null } | null;
+};
+
+/** "+254712345678" / "0712345678" / "254712345678" → "254712345678"; null if not a Kenyan mobile number. */
+export function normalizeKePhone(p?: string | null) {
+  const d = String(p ?? '').replace(/[\s-]/g, '').replace(/^\+/, '');
+  const m = d.match(/^(?:254|0)?([17]\d{8})$/);
+  return m ? `254${m[1]}` : null;
+}

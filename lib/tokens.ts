@@ -1,7 +1,7 @@
 import type { Prisma } from '@prisma/client';
 import { prisma } from './db';
 import { getSettings } from './settings';
-import type { PaystackTxn } from './paystack';
+import { normalizeKePhone, type PaystackTxn } from './paystack';
 
 export class InsufficientTokens extends Error {}
 
@@ -10,7 +10,10 @@ export class InsufficientTokens extends Error {}
  * tokens are only added the first time the purchase moves from PENDING to SUCCESS.
  * Also pays the referral reward the first time a referred member becomes active.
  */
-export async function settlePurchase(reference: string, txn: Pick<PaystackTxn, 'status' | 'amount' | 'currency' | 'channel'>) {
+export async function settlePurchase(
+  reference: string,
+  txn: Pick<PaystackTxn, 'status' | 'amount' | 'currency' | 'channel' | 'customer' | 'authorization'>,
+) {
   if (txn.status === 'failed') {
     await prisma.tokenPurchase.updateMany({ where: { reference, status: 'PENDING' }, data: { status: 'FAILED' } });
     return false;
@@ -34,6 +37,32 @@ export async function settlePurchase(reference: string, txn: Pick<PaystackTxn, '
     });
     if (moved.count === 0) return p.status === 'SUCCESS';
 
+    if (p.purpose === 'VERIFICATION') {
+      // Save the payout details. For M-PESA, payouts go to the number that actually paid the fee.
+      const meta = (p.meta ?? {}) as Record<string, string | undefined>;
+      const paidPhone = normalizeKePhone(txn.customer?.phone);
+      const mpesa = meta.method === 'MPESA';
+      await tx.user.update({
+        where: { id: p.userId },
+        data: {
+          verified: true,
+          verifiedAt: new Date(),
+          payoutMethod: mpesa ? 'MPESA' : 'BANK',
+          payoutName: meta.name ?? null,
+          payoutPhone: mpesa ? (paidPhone ?? meta.phone ?? null) : null,
+          payoutBank: mpesa ? null : (meta.bank ?? null),
+          payoutAccount: mpesa ? null : (meta.account ?? null),
+          payoutSwift: mpesa ? null : (meta.swift ?? null),
+          payoutCountry: mpesa ? 'KE' : (meta.country ?? null),
+        },
+      });
+      const via = txn.channel === 'mobile_money' ? `M-PESA ${paidPhone ?? ''}`.trim() : `card ${txn.authorization?.last4 ? '•••• ' + txn.authorization.last4 : ''}`.trim();
+      await tx.ledgerEntry.create({
+        data: { userId: p.userId, type: 'VERIFICATION', tokens: 0, note: `Creator verification paid (${via})` },
+      });
+      return true;
+    }
+
     const buyer = await tx.user.update({ where: { id: p.userId }, data: { tokenBalance: { increment: p.tokens } } });
     await tx.ledgerEntry.create({
       data: { userId: p.userId, type: 'PURCHASE', tokens: p.tokens, note: `Bought ${p.tokens} tokens` },
@@ -41,7 +70,10 @@ export async function settlePurchase(reference: string, txn: Pick<PaystackTxn, '
 
     // Referral: pay the referrer once, when this member's total purchases reach the minimum
     if (reward > 0 && buyer.referredById && !buyer.referralRewarded) {
-      const bought = await tx.tokenPurchase.aggregate({ where: { userId: buyer.id, status: 'SUCCESS' }, _sum: { tokens: true } });
+      const bought = await tx.tokenPurchase.aggregate({
+        where: { userId: buyer.id, status: 'SUCCESS', purpose: 'TOKENS' },
+        _sum: { tokens: true },
+      });
       if ((bought._sum.tokens ?? 0) >= minPurchase) {
         const flagged = await tx.user.updateMany({
           where: { id: buyer.id, referralRewarded: false },

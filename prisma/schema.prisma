@@ -44,6 +44,8 @@ enum LedgerType {
   PAYOUT_REFUND // rejected payout returned           (earnings +)
   ADMIN_CREDIT // tokens added by admin               (wallet +)
   REFERRAL // reward for referring an active member    (earnings +)
+  VIEWS // earnings for every 1000 unique views of a free video (earnings +)
+  VERIFICATION // paid the creator verification fee (no tokens, record only)
 }
 
 model User {
@@ -64,6 +66,17 @@ model User {
   referredBy       User?   @relation("Referrals", fields: [referredById], references: [id], onDelete: SetNull)
   referrals        User[]  @relation("Referrals")
   referralRewarded Boolean @default(false) // referrer already paid for this user
+  // Creator verification (paid fee) – unlocks premium uploads, paid live and view earnings
+  verified       Boolean   @default(false)
+  verifiedAt     DateTime?
+  // Payout details captured at verification; withdrawals are only paid here
+  payoutMethod   String? // "MPESA" or "BANK"
+  payoutName     String? // full name of the account holder
+  payoutPhone    String? // M-PESA number (2547XXXXXXXX) – the number that paid the fee
+  payoutBank     String? // bank name (international creators)
+  payoutAccount  String? // bank account number / IBAN
+  payoutSwift    String? // SWIFT/BIC code
+  payoutCountry  String? // country of the bank account
   createdAt      DateTime        @default(now())
   videos         Video[]
   unlocks        Unlock[]
@@ -76,6 +89,7 @@ model User {
   streams        LiveStream[]
   comments       Comment[]
   reports        Report[]
+  viewsGiven     VideoView[]
 
   @@index([referredById])
 }
@@ -93,13 +107,15 @@ model Video {
   flaggedSexual  Boolean  @default(false) // admin flagged as sexual content (always removed)
   sensitive      Boolean  @default(false) // show a "sensitive content" warning before viewing
   moderationNote String? // reason shown to the creator when rejected
-  views       Int         @default(0)
+  views       Int         @default(0) // all plays (shown publicly)
+  paidViews   Int         @default(0) // unique logged-in viewers – used for per-1000-views earnings
   ownerId     String
   owner       User        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   createdAt   DateTime    @default(now())
   unlocks     Unlock[]
   comments    Comment[]
   reports     Report[]
+  viewers     VideoView[]
 
   @@index([status, createdAt])
   @@index([ownerId])
@@ -121,6 +137,8 @@ model Unlock {
 model TokenPurchase {
   id        String         @id @default(cuid())
   reference String         @unique
+  purpose   String         @default("TOKENS") // "TOKENS" or "VERIFICATION"
+  meta      Json? // VERIFICATION: payout details entered before paying
   userId    String
   tokens    Int
   amount    Int // in subunits (cents) as sent to Paystack
@@ -151,7 +169,8 @@ model Payout {
   userId      String
   tokens      Int
   amountKes   Int
-  phone       String
+  method      String       @default("MPESA") // "MPESA" or "BANK"
+  phone       String // payout destination: M-PESA number, or bank details summary
   status      PayoutStatus @default(PENDING)
   note        String?
   createdAt   DateTime     @default(now())
@@ -249,4 +268,16 @@ model Report {
 model Setting {
   key   String @id
   value String
+}
+
+// One row per logged-in viewer per video – the basis for per-1000-views earnings
+model VideoView {
+  id        String   @id @default(cuid())
+  videoId   String
+  userId    String
+  createdAt DateTime @default(now())
+  video     Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([videoId, userId])
 }

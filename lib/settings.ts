@@ -12,6 +12,8 @@ export const DEFAULT_SETTINGS = {
   payout_min_tokens: '1000', // minimum withdrawal
   referral_reward: '50', // tokens (= KSh) paid to the referrer per active member
   referral_min_purchase: '100', // a referred member is "active" after buying at least this many tokens
+  verification_fee_kes: '200', // one-off fee to become a verified creator
+  views_rate: '20', // tokens (= KSh) a verified creator earns per 1000 unique views of a free video
   auto_publish: 'true', // new videos go live without admin review
   auto_hide_reports: '3', // hide a video once it has this many open reports (0 = never)
   auto_approve_live: 'false', // live streams go live without admin approval

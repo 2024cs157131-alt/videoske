@@ -3,7 +3,6 @@ import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 const { ADMIN_USERNAME = 'admin', ADMIN_EMAIL, ADMIN_PASSWORD } = process.env;
-if (!ADMIN_EMAIL || !ADMIN_PASSWORD) throw new Error('Set ADMIN_EMAIL and ADMIN_PASSWORD in .env first');
 
 const defaults = {
   price_min: '150',
@@ -16,6 +15,8 @@ const defaults = {
   payout_min_tokens: '1000',
   referral_reward: '50',
   referral_min_purchase: '100',
+  verification_fee_kes: '200',
+  views_rate: '20',
   auto_publish: 'true',
   auto_hide_reports: '3',
   auto_approve_live: 'false',
@@ -27,7 +28,8 @@ for (const [key, value] of Object.entries(defaults)) {
   await prisma.setting.upsert({ where: { key }, create: { key, value }, update: {} });
 }
 
-await prisma.user.upsert({
+// Create the first admin only if ADMIN_EMAIL and ADMIN_PASSWORD are set (never overwrites a password)
+if (ADMIN_EMAIL && ADMIN_PASSWORD) await prisma.user.upsert({
   where: { email: ADMIN_EMAIL.toLowerCase() },
   update: { role: 'ADMIN' },
   create: {
@@ -41,5 +43,5 @@ await prisma.user.upsert({
   },
 });
 
-console.log('Seeded settings and admin user:', ADMIN_EMAIL);
+console.log('Seeded settings' + (ADMIN_EMAIL ? ` and admin ${ADMIN_EMAIL}` : ''));
 await prisma.$disconnect();
