@@ -11,9 +11,9 @@ import { publicUrl } from '@/lib/storage';
 import { getCurrentUser } from '@/lib/auth';
 import { getSettings } from '@/lib/settings';
 import { getPricing, priceLabel } from '@/lib/pricing';
-import { SITE_DOMAIN, SITE_NAME, SITE_TAGLINE } from '@/lib/site';
+import { SITE_DOMAIN, SITE_NAME, SITE_TAGLINE, SITE_URL } from '@/lib/site';
 
-const siteUrl = process.env.SITE_URL || `https://${SITE_DOMAIN}`;
+const siteUrl = SITE_URL;
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

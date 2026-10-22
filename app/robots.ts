@@ -1,9 +1,9 @@
 import type { MetadataRoute } from 'next';
-import { SITE_DOMAIN } from '@/lib/site';
+import { SITE_URL } from '@/lib/site';
 
 // Search engines may list public pages (home, videos, profiles); private areas stay out.
 export default function robots(): MetadataRoute.Robots {
-  const site = process.env.SITE_URL || `https://${SITE_DOMAIN}`;
+  const site = SITE_URL;
   return {
     rules: {
       userAgent: '*',

@@ -1,12 +1,12 @@
 import type { MetadataRoute } from 'next';
 import { prisma } from '@/lib/db';
-import { SITE_DOMAIN } from '@/lib/site';
+import { SITE_URL } from '@/lib/site';
 
 export const dynamic = 'force-dynamic'; // built on request (never during deploys)
 
 // Public videos (without content warnings) and creator profiles, for Google & co.
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const site = process.env.SITE_URL || `https://${SITE_DOMAIN}`;
+  const site = SITE_URL;
   const [videos, creators] = await Promise.all([
     prisma.video.findMany({
       where: { status: 'APPROVED', sensitive: false, owner: { banned: false } },

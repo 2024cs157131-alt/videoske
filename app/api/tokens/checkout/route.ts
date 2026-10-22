@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { SITE_URL } from '@/lib/site';
 import { randomUUID } from 'crypto';
 import { prisma } from '@/lib/db';
 import { bad, readJson, requireApiUser } from '@/lib/api';
@@ -28,7 +29,7 @@ export async function POST(req: Request) {
   const reference = `vk_${randomUUID().replace(/-/g, '')}`;
   await prisma.tokenPurchase.create({ data: { reference, userId: user.id, tokens, amount, currency } });
 
-  const origin = (process.env.SITE_URL || new URL(req.url).origin).replace(/\/$/, '');
+  const origin = SITE_URL; // Paystack sends buyers back to vidaake.com
   try {
     const init = await paystack<{ authorization_url: string }>('/transaction/initialize', {
       method: 'POST',
