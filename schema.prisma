@@ -1,0 +1,285 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum VideoStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum PurchaseStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum PayoutStatus {
+  PENDING
+  PAID
+  REJECTED
+}
+
+enum AdType {
+  NATIVE
+  INTERSTITIAL
+}
+
+enum LedgerType {
+  PURCHASE // bought tokens via Paystack            (wallet +)
+  SPEND // unlocked a video / bought a live ticket   (wallet -)
+  EARN // creator share of someone's spend          (earnings +)
+  PAYOUT // creator withdrew earnings                (earnings -)
+  PAYOUT_REFUND // rejected payout returned           (earnings +)
+  ADMIN_CREDIT // tokens added by admin               (wallet +)
+  REFERRAL // reward for referring an active member    (earnings +)
+  VIEWS // earnings for every 1000 unique views of a free video (earnings +)
+  VERIFICATION // paid the creator verification fee (no tokens, record only)
+}
+
+model User {
+  id             String          @id @default(cuid())
+  username       String          @unique
+  email          String?         @unique
+  passwordHash   String?
+  displayName    String
+  bio            String?
+  dob            DateTime
+  consentAt      DateTime
+  role           Role            @default(USER)
+  managedByAdmin Boolean         @default(false) // profile created by admin (no login)
+  banned         Boolean         @default(false)
+  tokenBalance   Int             @default(0) // tokens available to spend
+  earnedTokens   Int             @default(0) // creator + referral earnings available to withdraw
+  referredById     String? // who invited this user
+  referredBy       User?   @relation("Referrals", fields: [referredById], references: [id], onDelete: SetNull)
+  referrals        User[]  @relation("Referrals")
+  referralRewarded Boolean @default(false) // referrer already paid for this user
+  // Creator verification (paid fee) – unlocks premium uploads, paid live and view earnings
+  verified       Boolean   @default(false)
+  verifiedAt     DateTime?
+  // Payout details captured at verification; withdrawals are only paid here
+  payoutMethod   String? // "MPESA" or "BANK"
+  payoutName     String? // full name of the account holder
+  payoutPhone    String? // M-PESA number (2547XXXXXXXX) – the number that paid the fee
+  payoutBank     String? // bank name (international creators)
+  payoutAccount  String? // bank account number / IBAN
+  payoutSwift    String? // SWIFT/BIC code
+  payoutCountry  String? // country of the bank account
+  createdAt      DateTime        @default(now())
+  videos         Video[]
+  unlocks        Unlock[]
+  tickets        LiveTicket[]
+  tokenPurchases TokenPurchase[]
+  ledger         LedgerEntry[]
+  payouts        Payout[]
+  sentMessages   Message[]       @relation("sent")
+  inbox          Message[]       @relation("received")
+  streams        LiveStream[]
+  comments       Comment[]
+  reports        Report[]
+  viewsGiven     VideoView[]
+
+  @@index([referredById])
+}
+
+model Video {
+  id          String      @id @default(cuid())
+  title       String
+  description String?
+  isPremium   Boolean     @default(true) // false = free public video
+  price       Int // token price (0 for free videos)
+  videoPath   String // private bucket - served via short-lived signed URL
+  thumbPath   String? // public bucket
+  previewPath String? // public bucket - short teaser clip
+  status      VideoStatus @default(PENDING)
+  flaggedSexual  Boolean  @default(false) // admin flagged as sexual content (always removed)
+  sensitive      Boolean  @default(false) // show a "sensitive content" warning before viewing
+  moderationNote String? // reason shown to the creator when rejected
+  views       Int         @default(0) // all plays (shown publicly)
+  paidViews   Int         @default(0) // unique logged-in viewers – used for per-1000-views earnings
+  fingerprint String? // hash of the uploaded file – catches re-uploads of another creator's video
+  ownerId     String
+  owner       User        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt   DateTime    @default(now())
+  unlocks     Unlock[]
+  comments    Comment[]
+  reports     Report[]
+  viewers     VideoView[]
+
+  @@index([status, createdAt])
+  @@index([ownerId])
+  @@index([fingerprint])
+}
+
+model Unlock {
+  id           String   @id @default(cuid())
+  userId       String
+  videoId      String
+  tokens       Int
+  creatorShare Int
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video        Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, videoId])
+}
+
+model TokenPurchase {
+  id        String         @id @default(cuid())
+  reference String         @unique
+  purpose   String         @default("TOKENS") // "TOKENS" or "VERIFICATION"
+  meta      Json? // VERIFICATION: payout details entered before paying
+  userId    String
+  tokens    Int
+  amount    Int // in subunits (cents) as sent to Paystack
+  currency  String
+  status    PurchaseStatus @default(PENDING)
+  channel   String?
+  createdAt DateTime       @default(now())
+  paidAt    DateTime?
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model LedgerEntry {
+  id        String     @id @default(cuid())
+  userId    String
+  type      LedgerType
+  tokens    Int // + or -
+  note      String?
+  createdAt DateTime   @default(now())
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model Payout {
+  id          String       @id @default(cuid())
+  userId      String
+  tokens      Int
+  amountKes   Int
+  method      String       @default("MPESA") // "MPESA" or "BANK"
+  phone       String // payout destination: M-PESA number, or bank details summary
+  status      PayoutStatus @default(PENDING)
+  note        String?
+  createdAt   DateTime     @default(now())
+  processedAt DateTime?
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+}
+
+model Ad {
+  id          String   @id @default(cuid())
+  type        AdType
+  title       String
+  body        String?
+  imageUrl    String?
+  linkUrl     String
+  active      Boolean  @default(true)
+  impressions Int      @default(0)
+  clicks      Int      @default(0)
+  createdAt   DateTime @default(now())
+}
+
+model Message {
+  id         String    @id @default(cuid())
+  senderId   String
+  receiverId String
+  body       String
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+  sender     User      @relation("sent", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver   User      @relation("received", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@index([senderId, receiverId, createdAt])
+  @@index([receiverId, createdAt])
+}
+
+model LiveStream {
+  id          String       @id @default(cuid())
+  title       String
+  roomName    String       @unique
+  hostId      String
+  host        User         @relation(fields: [hostId], references: [id], onDelete: Cascade)
+  ticketPrice Int          @default(0) // tokens to join (0 = free)
+  status        VideoStatus @default(PENDING) // viewers can join only after admin approval
+  flaggedSexual Boolean     @default(false)
+  lastSeenAt    DateTime    @default(now()) // host heartbeat; stale streams end automatically
+  isLive      Boolean      @default(true)
+  startedAt   DateTime     @default(now())
+  endedAt     DateTime?
+  tickets     LiveTicket[]
+
+  @@index([isLive])
+}
+
+model LiveTicket {
+  id           String     @id @default(cuid())
+  userId       String
+  streamId     String
+  tokens       Int
+  creatorShare Int
+  createdAt    DateTime   @default(now())
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stream       LiveStream @relation(fields: [streamId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, streamId])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  body      String
+  userId    String
+  videoId   String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video     Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([videoId, createdAt])
+}
+
+model Report {
+  id         String   @id @default(cuid())
+  category   String   @default("OTHER") // SEXUAL, UNDERAGE, SENSITIVE, STOLEN, OTHER
+  reason     String
+  reporterId String
+  videoId    String
+  resolved   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  reporter   User     @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  video      Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([videoId, resolved])
+}
+
+// Key/value settings editable from the admin dashboard
+model Setting {
+  key   String @id
+  value String
+}
+
+// One row per logged-in viewer per video – the basis for per-1000-views earnings
+model VideoView {
+  id        String   @id @default(cuid())
+  videoId   String
+  userId    String
+  createdAt DateTime @default(now())
+  video     Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([videoId, userId])
+}

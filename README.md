@@ -1,4 +1,4 @@
-# VideosKE – 18+ video platform with tokens (Next.js + Supabase + Paystack + Vercel)
+# Vidaake (vidaake.com) – 18+ video platform with tokens (Next.js + Supabase + Paystack + Vercel)
 
 ## Features
 | | |
@@ -17,6 +17,20 @@
 | **Content rules** | No nudity or sexual content (required by Paystack's terms). Uploaders confirm this on every upload and stream. |
 
 ---
+
+
+## Connecting vidaake.com
+1. **Vercel → your project → Settings → Domains**: add `vidaake.com` and `www.vidaake.com`.
+2. At your domain registrar, add the DNS records Vercel shows. Usually that's an **A record** `@ → 76.76.21.21` and a **CNAME** `www → cname.vercel-dns.com`, but use whatever Vercel displays.
+3. Vercel → Environment Variables: set `SITE_URL=https://vidaake.com`, then **Redeploy**.
+4. **Paystack → Settings → API Keys & Webhooks**: change the webhook URL to `https://vidaake.com/api/paystack/webhook`.
+5. Optional: submit `https://vidaake.com/sitemap.xml` in Google Search Console.
+
+## Update 008 (Vidaake rename, originality, weekly payouts, speed)
+- **Originality:** uploaders confirm the video is their own. Each upload is fingerprinted on the server; re-uploading another creator's video is blocked and bans the account automatically. Admin also has **🚫 Not original – delete & ban**.
+- **Weekly payouts:** earnings clear after 7 days. Creators request once per week once they have **KSh 4,500** available. You pay every **Friday**. All three values are in Admin → Settings.
+- **Speed:** functions run in Paris next to the database (`vercel.json`), each page reads settings and the logged-in user only once, and the live-stream cleanup is throttled.
+- **Search & mobile:** robots.txt, sitemap.xml, link previews, app icon, and "Add to Home screen" support.
 
 ## Updating your existing site (you already deployed v1)
 
