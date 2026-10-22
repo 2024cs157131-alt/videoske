@@ -54,7 +54,7 @@ export default async function LivePage({ params, searchParams }: { params: { id:
             {stream.title}
           </h1>
           <Link href={`/u/${stream.host.username}`} className="muted">
-            @{stream.host.username} {stream.host.verified && <VerifiedBadge />} {stream.ticketPrice > 0 ? `· ticket ${priceLabel(stream.ticketPrice, pricing)}` : '· free stream'}
+            {stream.host.displayName} {stream.host.verified && <VerifiedBadge />} · @{stream.host.username} {stream.ticketPrice > 0 ? `· ticket ${priceLabel(stream.ticketPrice, pricing)}` : '· free stream'}
           </Link>
         </div>
         <div className="row">

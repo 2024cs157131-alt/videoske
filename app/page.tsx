@@ -5,8 +5,9 @@ import { getSettings } from '@/lib/settings';
 import { pickAds } from '@/lib/ads';
 import { endStaleStreams, visibleLiveWhere } from '@/lib/live';
 import { getPricing, priceLabel } from '@/lib/pricing';
-import VideoCard from '@/components/VideoCard';
-import PostCard from '@/components/PostCard';
+import FeedEntry from '@/components/FeedEntry';
+import { socialState } from '@/lib/social';
+import { siteOrigin } from '@/lib/site';
 import NativeAd from '@/components/NativeAd';
 import Avatar from '@/components/Avatar';
 
@@ -40,6 +41,23 @@ export default async function Home({ searchParams }: { searchParams: { q?: strin
     prisma.liveStream.findMany({ where: visibleLiveWhere, include: { host: true }, take: 8 }),
     getSettings(),
   ]);
+  // Recent reshares appear in the feed as "🔁 Jane reshared" (not while searching)
+  const reshares = q
+    ? []
+    : await prisma.reshare.findMany({
+        where: { user: { banned: false }, video: { status: 'APPROVED', owner: { banned: false } } },
+        include: { user: true, video: { include: { owner: true } } },
+        orderBy: { createdAt: 'desc' },
+        take: 30,
+      });
+  type Entry = { key: string; at: Date; item: (typeof items)[number]; by?: (typeof reshares)[number]['user'] };
+  const entries: Entry[] = [
+    ...items.map((v) => ({ key: v.id, at: v.createdAt, item: v })),
+    ...reshares.map((r) => ({ key: `r-${r.id}`, at: r.createdAt, item: r.video, by: r.user })),
+  ]
+    .sort((a, b) => b.at.getTime() - a.at.getTime())
+    .slice(0, 70);
+  const [social, origin] = [await socialState([...new Set(entries.map((e) => e.item.id))], user?.id), siteOrigin()];
 
   const unlocked = user
     ? new Set((await prisma.unlock.findMany({ where: { userId: user.id }, select: { videoId: true } })).map((u) => u.videoId))
@@ -49,18 +67,22 @@ export default async function Home({ searchParams }: { searchParams: { q?: strin
 
   const pricing = await getPricing(settings);
   const every = parseInt(settings.native_ad_every, 10) || 0;
-  const ads = every > 0 ? await pickAds('NATIVE', Math.floor(items.length / every)) : [];
+  const ads = every > 0 ? await pickAds('NATIVE', Math.floor(entries.length / every)) : [];
 
   const cards: React.ReactNode[] = [];
-  items.forEach((v, i) => {
+  entries.forEach((e, i) => {
     cards.push(
-      <div key={v.id} className="feed-item" style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}>
-        {v.kind === 'POST' ? (
-          <PostCard p={v} pricing={pricing} unlocked={isUnlocked(v.id, v.ownerId)} />
-        ) : (
-          <VideoCard v={v} pricing={pricing} unlocked={isUnlocked(v.id, v.ownerId)} />
-        )}
-      </div>,
+      <FeedEntry
+        key={e.key}
+        item={e.item}
+        resharedBy={e.by}
+        pricing={pricing}
+        unlocked={isUnlocked(e.item.id, e.item.ownerId)}
+        social={social.get(e.item.id)}
+        meId={user?.id}
+        origin={origin}
+        delay={Math.min(i, 12) * 40}
+      />,
     );
     const ad = every > 0 && (i + 1) % every === 0 ? ads[(i + 1) / every - 1] : undefined;
     if (ad)
@@ -116,7 +138,7 @@ export default async function Home({ searchParams }: { searchParams: { q?: strin
         <input name="q" defaultValue={q} placeholder="Search videos, posts or @creators" />
       </form>
 
-      {items.length === 0 ? (
+      {entries.length === 0 ? (
         <p className="muted">{q ? 'Nothing found.' : 'Nothing here yet – be the first to post!'}</p>
       ) : (
         <div className="grid feed">{cards}</div>

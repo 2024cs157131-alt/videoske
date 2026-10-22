@@ -4,16 +4,19 @@ import { prisma } from '@/lib/db';
 import { bad, readJson } from '@/lib/api';
 import { isAdult, startSession } from '@/lib/auth';
 import { getSettings } from '@/lib/settings';
+import { Prisma } from '@prisma/client';
+import { normalizeUsername, usernameProblem } from '@/lib/usernames';
 
 export async function POST(req: Request) {
   const b = await readJson(req);
-  const username = String(b.username ?? '').trim().toLowerCase();
+  const username = normalizeUsername(b.username);
   const email = String(b.email ?? '').trim().toLowerCase();
   const password = String(b.password ?? '');
   const displayName = (String(b.displayName ?? '').trim() || username).slice(0, 50);
   const dob = new Date(String(b.dob ?? ''));
 
-  if (!/^[a-z0-9_]{3,20}$/.test(username)) return bad('Username must be 3–20 letters, numbers or _.');
+  const problem = usernameProblem(username);
+  if (problem) return bad(problem);
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return bad('Enter a valid email address.');
   if (password.length < 8) return bad('Password must be at least 8 characters.');
   if (isNaN(dob.getTime())) return bad('Enter your date of birth.');
@@ -29,9 +32,10 @@ export async function POST(req: Request) {
       : null;
 
   const taken = await prisma.user.findFirst({ where: { OR: [{ username }, { email }] } });
-  if (taken) return bad('That username or email is already registered.');
+  if (taken) return bad(taken.username === username ? `@${username} is already taken – choose another username.` : 'That email is already registered.');
 
-  const user = await prisma.user.create({
+  const user = await prisma.user
+    .create({
     data: {
       username,
       email,
@@ -41,7 +45,13 @@ export async function POST(req: Request) {
       referredById: referrer?.id ?? null,
       passwordHash: await bcrypt.hash(password, 12),
     },
-  });
+    })
+    .catch((e) => {
+      // Someone grabbed the same username/email a moment ago
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') return null;
+      throw e;
+    });
+  if (!user) return bad('That username or email was just taken – please choose another.');
   // Welcome gift: free viewing tokens (bonus wallet – spent first, never withdrawable)
   const bonus = parseInt((await getSettings()).welcome_bonus, 10) || 0;
   if (bonus > 0) {

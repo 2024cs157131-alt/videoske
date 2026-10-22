@@ -97,6 +97,9 @@ model User {
   followers      Follow[]        @relation("followers")
   notifications  Notification[]  @relation("notifications")
   notified       Notification[]  @relation("notifActor")
+  likes          Like[]
+  reshares       Reshare[]
+  commentReports CommentReport[]
 
   @@index([referredById])
 }
@@ -128,6 +131,8 @@ model Video {
   comments    Comment[]
   reports     Report[]
   viewers     VideoView[]
+  likes       Like[]
+  reshares    Reshare[]
 
   @@index([status, createdAt])
   @@index([ownerId])
@@ -258,10 +263,49 @@ model Comment {
   userId    String
   videoId   String
   createdAt DateTime @default(now())
+  hidden    Boolean  @default(false) // hidden by the creator/admin, or automatically after reports
+  reportCount Int    @default(0)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video     Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  reports   CommentReport[]
+
+  @@index([videoId, createdAt])
+}
+
+model CommentReport {
+  id        String   @id @default(cuid())
+  commentId String
+  userId    String
+  createdAt DateTime @default(now())
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, userId])
+}
+
+model Like {
+  id        String   @id @default(cuid())
+  userId    String
+  videoId   String
+  createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   video     Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
 
-  @@index([videoId, createdAt])
+  @@unique([userId, videoId])
+  @@index([videoId])
+}
+
+// A member re-posting someone's video/post to their own profile and the home feed
+model Reshare {
+  id        String   @id @default(cuid())
+  userId    String
+  videoId   String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video     Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, videoId])
+  @@index([createdAt])
 }
 
 model Report {

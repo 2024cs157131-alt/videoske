@@ -5,8 +5,8 @@ import type { Metadata } from 'next';
 import VerifiedBadge from '@/components/VerifiedBadge';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
-import VideoCard from '@/components/VideoCard';
-import PostCard from '@/components/PostCard';
+import FeedEntry from '@/components/FeedEntry';
+import { socialState } from '@/lib/social';
 import Avatar from '@/components/Avatar';
 import ShareButtons from '@/components/ShareButtons';
 import { siteOrigin } from '@/lib/site';
@@ -46,6 +46,17 @@ export default async function ProfilePage({ params, searchParams }: { params: { 
     }),
     prisma.liveStream.findFirst({ where: { hostId: profile.id, isLive: true, status: 'APPROVED' } }),
   ]);
+  const reshared = await prisma.reshare.findMany({
+    where: { userId: profile.id, video: { status: 'APPROVED', owner: { banned: false } } },
+    include: { video: { include: { owner: true } } },
+    orderBy: { createdAt: 'desc' },
+    take: 50,
+  });
+  const entries = [
+    ...items.map((v) => ({ key: v.id, at: v.createdAt, item: v, reshare: false })),
+    ...reshared.map((r) => ({ key: `r-${r.id}`, at: r.createdAt, item: r.video, reshare: true })),
+  ].sort((a, b) => b.at.getTime() - a.at.getTime());
+  const social = await socialState([...new Set(entries.map((e) => e.item.id))], user?.id);
 
   const [subscribers, subscribed] = await Promise.all([
     prisma.follow.count({ where: { creatorId: profile.id } }),
@@ -61,7 +72,7 @@ export default async function ProfilePage({ params, searchParams }: { params: { 
   const unlocked = user
     ? new Set(
         (
-          await prisma.unlock.findMany({ where: { userId: user.id, video: { ownerId: profile.id } }, select: { videoId: true } })
+          await prisma.unlock.findMany({ where: { userId: user.id, videoId: { in: entries.map((e) => e.item.id) } }, select: { videoId: true } })
         ).map((u) => u.videoId),
       )
     : new Set<string>();
@@ -158,18 +169,23 @@ export default async function ProfilePage({ params, searchParams }: { params: { 
         </div>
       )}
 
-      {items.length === 0 ? (
+      {entries.length === 0 ? (
         <p className="muted">Nothing posted yet.</p>
       ) : (
         <div className="grid feed">
-          {items.map((v, i) => (
-            <div key={v.id} className="feed-item" style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}>
-              {v.kind === 'POST' ? (
-                <PostCard p={v} pricing={pricing} unlocked={canSeeAll || unlocked.has(v.id)} showStatus={canSeeAll} />
-              ) : (
-                <VideoCard v={v} pricing={pricing} unlocked={canSeeAll || unlocked.has(v.id)} showStatus={canSeeAll} />
-              )}
-            </div>
+          {entries.map((e, i) => (
+            <FeedEntry
+              key={e.key}
+              item={e.item}
+              resharedBy={e.reshare ? profile : null}
+              pricing={pricing}
+              unlocked={(!e.reshare && canSeeAll) || unlocked.has(e.item.id) || user?.id === e.item.ownerId || isAdmin}
+              showStatus={!e.reshare && canSeeAll}
+              social={social.get(e.item.id)}
+              meId={user?.id}
+              origin={origin}
+              delay={Math.min(i, 12) * 40}
+            />
           ))}
         </div>
       )}

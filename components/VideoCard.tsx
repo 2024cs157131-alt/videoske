@@ -49,7 +49,7 @@ export default function VideoCard({
           <div className="muted small">
             {v.owner && (
               <>
-                @{v.owner.username} {v.owner.verified && <VerifiedBadge size={12} />} ·{' '}
+                {v.owner.displayName} {v.owner.verified && <VerifiedBadge size={12} />} ·{' '}
               </>
             )}
             {fmtViews(v.views)} view{v.views === 1 ? '' : 's'}

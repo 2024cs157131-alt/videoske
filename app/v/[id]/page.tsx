@@ -4,6 +4,8 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import VerifiedBadge from '@/components/VerifiedBadge';
 import ShareButtons from '@/components/ShareButtons';
+import ActionBar from '@/components/ActionBar';
+import { socialState } from '@/lib/social';
 import { siteOrigin } from '@/lib/site';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
@@ -223,6 +225,17 @@ export default async function ContentPage({
         </Link>
       )}
 
+      {item.status === 'APPROVED' && (
+        <ActionBar
+          s={(await socialState([item.id], user?.id)).get(item.id)!}
+          loggedIn={!!user}
+          isOwn={isOwner}
+          shareUrl={`${siteOrigin()}/v/${item.id}${user ? `?ref=${user.username}` : ''}`}
+          title={item.title}
+          big
+        />
+      )}
+
       <div className="row between">
         {item.status === 'APPROVED' ? (
           <ShareButtons url={`${siteOrigin()}/v/${item.id}${user ? `?ref=${user.username}` : ''}`} title={item.title} />
@@ -285,7 +298,15 @@ export default async function ContentPage({
       <Comments
         videoId={item.id}
         canComment={!!user && item.status === 'APPROVED'}
-        comments={item.comments.map((c) => ({
+        meId={user?.id ?? null}
+        canModerate={isOwner || isAdmin}
+        isAdmin={isAdmin}
+        comments={item.comments
+          .filter((c) => !c.hidden || isOwner || isAdmin || c.userId === user?.id)
+          .map((c) => ({
+          hidden: c.hidden,
+          reportCount: c.reportCount,
+          userId: c.userId,
           id: c.id,
           body: c.body,
           createdAt: c.createdAt.toISOString(),

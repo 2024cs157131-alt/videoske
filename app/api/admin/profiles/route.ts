@@ -1,3 +1,4 @@
+import { normalizeUsername, usernameProblem } from '@/lib/usernames';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { bad, readJson, requireApiUser } from '@/lib/api';
@@ -9,12 +10,13 @@ export async function POST(req: Request) {
   if ('error' in r) return r.error;
   const b = await readJson(req);
 
-  const username = String(b.username ?? '').trim().toLowerCase();
+  const username = normalizeUsername(b.username);
   const displayName = String(b.displayName ?? '').trim().slice(0, 50);
   const bio = String(b.bio ?? '').trim().slice(0, 500) || null;
   const dob = new Date(String(b.dob ?? ''));
 
-  if (!/^[a-z0-9_]{3,20}$/.test(username)) return bad('Username must be 3–20 letters, numbers or _.');
+  const problem = usernameProblem(username);
+  if (problem) return bad(problem);
   if (!displayName) return bad('Display name is required.');
   if (isNaN(dob.getTime()) || !isAdult(dob)) return bad('The person must be 18 or older (check date of birth).');
   if (b.consent !== true) return bad('Confirm you hold this person’s written consent and verified ID.');

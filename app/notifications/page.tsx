@@ -8,7 +8,7 @@ import { timeAgo } from '@/components/PostCard';
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Notifications' };
 
-const ICON: Record<string, string> = { UPLOAD: '🎬', POST: '📝', LIVE: '🔴', SUBSCRIBER: '🔔', WELCOME: '🎁' };
+const ICON: Record<string, string> = { UPLOAD: '🎬', POST: '📝', LIVE: '🔴', SUBSCRIBER: '🔔', WELCOME: '🎁', COMMENT: '💬', RESHARE: '🔁' };
 
 export default async function NotificationsPage() {
   const user = await getCurrentUser();

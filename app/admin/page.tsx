@@ -74,6 +74,13 @@ export default async function AdminPage() {
     (v.reports.some((r) => r.category === 'UNDERAGE') ? 1000 : 0) +
     (v.reports.some((r) => r.category === 'SEXUAL') ? 100 : 0) +
     v.reports.length;
+  const reportedComments = await prisma.comment.findMany({
+    where: { reportCount: { gt: 0 } },
+    include: { user: true, video: { select: { id: true, title: true } }, reports: { include: { user: true }, take: 5 } },
+    orderBy: { reportCount: 'desc' },
+    take: 50,
+  });
+
   const sensitiveRaw = await prisma.video.findMany({
     where: { status: 'PENDING', sensitive: true },
     include: { owner: true },
@@ -252,6 +259,37 @@ export default async function AdminPage() {
                 label="🗑 Delete"
                 className="btn small danger"
                 confirmText="Delete this for good (e.g. sexual content)?"
+              />
+            </div>
+          </div>
+        ))}
+      </section>
+
+      <section className="card-panel">
+        <h2 style={{ marginTop: 0 }}>💬 Reported comments ({reportedComments.length})</h2>
+        <p className="muted small">
+          Comments are hidden automatically after 3 reports. Keep puts a comment back and clears its reports; Delete removes
+          it. Creators can also hide or delete comments on their own videos and posts.
+        </p>
+        {reportedComments.length === 0 && <p className="muted">No reported comments. 🎉</p>}
+        {reportedComments.map((c) => (
+          <div key={c.id} className="list-item" style={{ alignItems: 'flex-start', flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 280px', minWidth: 0 }}>
+              <div className="review-text">{c.body}</div>
+              <div className="muted small" style={{ marginTop: 4 }}>
+                by @{c.user.username} on <Link href={`/v/${c.video.id}#comments`}>{c.video.title}</Link> · {c.reportCount} report
+                {c.reportCount === 1 ? '' : 's'} {c.hidden ? '· hidden' : ''}
+                {c.reports.length > 0 && ` · reported by ${c.reports.map((r) => '@' + r.user.username).join(', ')}`}
+              </div>
+            </div>
+            <div className="row">
+              <ActionButton url={`/api/comments/${c.id}`} body={{ action: 'SHOW' }} label="✓ Keep" className="btn small ok" />
+              <ActionButton
+                url={`/api/comments/${c.id}`}
+                body={{ action: 'DELETE' }}
+                label="🗑 Delete"
+                className="btn small danger"
+                confirmText="Delete this comment?"
               />
             </div>
           </div>
