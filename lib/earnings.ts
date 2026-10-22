@@ -54,3 +54,31 @@ export async function earningsStatus(user: { id: string; earnedTokens: number },
     nextPayoutDate: nextWeekday(weekday),
   };
 }
+
+const EAT = 3 * 3600_000;
+const dayKey = (d: Date) => new Date(d.getTime() + EAT).toISOString().slice(0, 10); // Nairobi calendar day
+
+export type DayEarning = { key: string; label: string; amount: number; isToday: boolean };
+
+/** Earnings (premium sales, views, referrals) per Nairobi day for the last `days` days, oldest first. */
+export async function dailyEarnings(userId: string, days = 14): Promise<DayEarning[]> {
+  const since = new Date(Date.now() - days * DAY);
+  const rows = await prisma.ledgerEntry.findMany({
+    where: { userId, type: { in: ['EARN', 'VIEWS', 'REFERRAL'] }, createdAt: { gte: since } },
+    select: { tokens: true, createdAt: true },
+  });
+  const totals = new Map<string, number>();
+  for (const r of rows) totals.set(dayKey(r.createdAt), (totals.get(dayKey(r.createdAt)) ?? 0) + r.tokens);
+
+  const today = dayKey(new Date());
+  return Array.from({ length: days }, (_, i) => {
+    const d = new Date(Date.now() - (days - 1 - i) * DAY);
+    const key = dayKey(d);
+    return {
+      key,
+      label: d.toLocaleDateString('en-KE', { weekday: 'short', day: 'numeric', timeZone: 'Africa/Nairobi' }),
+      amount: totals.get(key) ?? 0,
+      isToday: key === today,
+    };
+  });
+}

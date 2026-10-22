@@ -27,6 +27,9 @@ export async function POST(req: Request) {
   if (![v.usd_enabled, v.auto_publish, v.auto_approve_live].every((x) => ['true', 'false'].includes(x))) {
     return bad('Invalid yes/no setting.');
   }
+  if (!(int(v.payout_hold_days) >= 0 && int(v.payout_hold_days) <= 60)) return bad('Clearing period must be 0–60 days.');
+  if (!(int(v.payout_weekday) >= 0 && int(v.payout_weekday) <= 6)) return bad('Payout day must be 0 (Sunday) to 6 (Saturday).');
+  if (!(int(v.welcome_bonus) >= 0)) return bad('Welcome bonus must be a whole number (0 = off).');
   if (!(int(v.verification_fee_kes) >= 1)) return bad('Verification fee must be at least KSh 1.');
   if (!(int(v.views_rate) >= 0)) return bad('Views rate must be a whole number (0 = off).');
   if (!(int(v.auto_hide_reports) >= 0)) return bad('Auto-hide must be a whole number (0 = never).');

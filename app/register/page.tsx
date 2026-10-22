@@ -28,7 +28,7 @@ export default function RegisterPage() {
         ref = ref || localStorage.getItem('vk_ref') || '';
       } catch {}
       await postJSON('/api/auth/register', { ...f, confirmAge, consent, terms, ref });
-      window.location.href = '/';
+      window.location.href = '/?welcome=1';
     } catch (err) {
       setError((err as Error).message);
       setBusy(false);

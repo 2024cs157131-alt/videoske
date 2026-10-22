@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { postJSON } from '@/lib/client';
 import { uploadFile } from '@/lib/upload';
 import { makeThumbnail, makeTrailer } from '@/lib/media';
+import { openUpgrade } from '@/components/UpgradeModal';
 
 type Owner = { id: string; label: string };
 
@@ -34,6 +35,7 @@ export default function UploadForm({
   const [video, setVideo] = useState<File | null>(null);
   const [thumb, setThumb] = useState<File | null>(null);
   const [consent, setConsent] = useState(false);
+  const [original, setOriginal] = useState(false);
   const [sensitive, setSensitive] = useState(false);
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
@@ -66,7 +68,7 @@ export default function UploadForm({
       }
 
       setStatus('Saving…');
-      const res = await postJSON<{ id: string }>('/api/videos', {
+      const res = await postJSON<{ id: string; notified: number }>('/api/videos', {
         ownerId,
         title,
         description,
@@ -75,9 +77,10 @@ export default function UploadForm({
         thumbPath,
         previewPath,
         consent,
+        original,
         sensitive,
       });
-      window.location.href = `/v/${res.id}`;
+      window.location.href = `/v/${res.id}?posted=1&notified=${res.notified}`;
     } catch (err) {
       setError((err as Error).message);
       setStatus('');
@@ -114,7 +117,16 @@ export default function UploadForm({
             </span>
           </span>
         </label>
-        <label className={`radio-card ${isPremium ? 'on' : ''}`} style={canPremium ? undefined : { opacity: 0.6, cursor: 'default' }}>
+        <label
+          className={`radio-card ${isPremium ? 'on' : ''}`}
+          style={canPremium ? undefined : { opacity: 0.75 }}
+          onClick={(e) => {
+            if (!canPremium) {
+              e.preventDefault();
+              openUpgrade();
+            }
+          }}
+        >
           <input type="radio" checked={isPremium} disabled={!canPremium} onChange={() => setIsPremium(true)} />
           <span>
             <strong>Premium (paid)</strong>
@@ -126,9 +138,9 @@ export default function UploadForm({
             {!canPremium && (
               <>
                 <br />
-                <a href="/verify" className="small" style={{ textDecoration: 'underline', color: 'var(--accent-2)' }}>
-                  Get verified (KSh {verifyFee}) to upload premium videos →
-                </a>
+                <span className="small" style={{ textDecoration: 'underline', color: 'var(--accent-2)' }}>
+                  🔒 Upgrade (KSh {verifyFee}) to upload premium videos →
+                </span>
               </>
             )}
           </span>
@@ -159,21 +171,29 @@ export default function UploadForm({
       <label className="check">
         <input type="checkbox" checked={sensitive} onChange={(e) => setSensitive(e.target.checked)} />
         <span>
-          <strong>Add a content warning</strong> – mature content such as strong language, violence or partying. Viewers
-          tap “Show” before it plays.
+          <strong>Mark as sensitive</strong> – mature content such as strong language, violence or partying. An admin
+          reviews it before it’s published, and viewers tap “Show” before it plays.
+        </span>
+      </label>
+      <label className="check original-consent">
+        <input type="checkbox" checked={original} onChange={(e) => setOriginal(e.target.checked)} />
+        <span>
+          <strong>This video is my own original work.</strong> I filmed or created it myself and it isn’t copied from
+          another creator, website or app. I understand that if it isn’t mine,{' '}
+          <strong>my account will be banned automatically</strong> and my unpaid earnings withheld.
         </span>
       </label>
       <label className="check">
         <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
         <span>
-          I confirm everyone in this video is 18 or older and agreed to being filmed and published, and I own the rights
-          to it. Sexual content isn’t allowed and is deleted when reported.
+          Everyone in this video is 18 or older and agreed to being filmed and published. Sexual content isn’t allowed
+          and is deleted when reported.
         </span>
       </label>
       {error && <div className="error">{error}</div>}
       {status && <div className="success">{status}</div>}
-      <button className="btn" disabled={busy || !consent}>
-        {busy ? 'Uploading…' : 'Upload video'}
+      <button className="btn" disabled={busy || !consent || !original}>
+        {busy ? 'Uploading…' : sensitive ? 'Upload & send for review' : 'Upload video'}
       </button>
     </form>
   );

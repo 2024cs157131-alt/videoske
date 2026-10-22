@@ -18,8 +18,8 @@ export default function GoLiveForm({ creatorPercent, canCharge }: { creatorPerce
         setBusy(true);
         setError('');
         try {
-          const { id } = await postJSON<{ id: string }>('/api/live', { title, ticketPrice: canCharge ? parseInt(ticketPrice, 10) || 0 : 0 });
-          router.push(`/live/${id}`);
+          const { id, notified } = await postJSON<{ id: string; notified: number }>('/api/live', { title, ticketPrice: canCharge ? parseInt(ticketPrice, 10) || 0 : 0 });
+          router.push(`/live/${id}?notified=${notified}`);
         } catch (err) {
           setError((err as Error).message);
           setBusy(false);

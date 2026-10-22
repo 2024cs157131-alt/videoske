@@ -12,9 +12,12 @@ const defaults = {
   token_packages: '100,200,500,1000,2000',
   usd_enabled: 'false',
   commission_percent: '30',
-  payout_min_tokens: '1000',
+  payout_min_tokens: '4500',
+  payout_hold_days: '7',
+  payout_weekday: '5',
   referral_reward: '50',
   referral_min_purchase: '100',
+  welcome_bonus: '200',
   verification_fee_kes: '200',
   views_rate: '20',
   auto_publish: 'true',
@@ -27,6 +30,9 @@ const defaults = {
 for (const [key, value] of Object.entries(defaults)) {
   await prisma.setting.upsert({ where: { key }, create: { key, value }, update: {} });
 }
+
+// One-off: move the old 1,000 minimum to the new weekly KSh 4,500 minimum (custom values are kept)
+await prisma.setting.updateMany({ where: { key: 'payout_min_tokens', value: '1000' }, data: { value: '4500' } });
 
 // Create the first admin only if ADMIN_EMAIL and ADMIN_PASSWORD are set (never overwrites a password)
 if (ADMIN_EMAIL && ADMIN_PASSWORD) await prisma.user.upsert({

@@ -5,7 +5,7 @@ export default function NativeAd({ ad }: { ad: Ad }) {
   return (
     <a href={`/api/ads/${ad.id}/click`} target="_blank" rel="sponsored noopener" className="card ad-card">
       <div className="thumb">
-        {ad.imageUrl ? <img src={ad.imageUrl} alt="" loading="lazy" /> : <div className="placeholder" />}
+        {ad.imageUrl ? <img src={ad.imageUrl} alt="" loading="lazy" decoding="async" /> : <div className="placeholder" />}
         <span className="ad-label">Sponsored</span>
       </div>
       <div className="card-body">

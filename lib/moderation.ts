@@ -2,11 +2,12 @@ import type { Video } from '@prisma/client';
 import { prisma } from './db';
 import { PRIVATE_BUCKET, PUBLIC_BUCKET, supabaseAdmin } from './storage';
 
-/** Remove a video's files from storage (missing files are ignored). */
-export async function deleteVideoFiles(v: Pick<Video, 'videoPath' | 'thumbPath' | 'previewPath'>) {
+/** Remove a video's or post's files from storage (missing files are ignored). */
+export async function deleteVideoFiles(v: Pick<Video, 'videoPath' | 'thumbPath' | 'previewPath'> & { imagePath?: string | null }) {
   const sb = supabaseAdmin();
-  await sb.storage.from(PRIVATE_BUCKET).remove([v.videoPath]).catch(() => {});
-  const pub = [v.thumbPath, v.previewPath].filter((p): p is string => !!p);
+  const priv = [v.videoPath, v.imagePath].filter((p): p is string => !!p);
+  const pub = [v.thumbPath, v.previewPath, v.imagePath].filter((p): p is string => !!p);
+  if (priv.length) await sb.storage.from(PRIVATE_BUCKET).remove(priv).catch(() => {});
   if (pub.length) await sb.storage.from(PUBLIC_BUCKET).remove(pub).catch(() => {});
 }
 

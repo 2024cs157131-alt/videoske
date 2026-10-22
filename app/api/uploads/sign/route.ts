@@ -9,6 +9,9 @@ const KINDS = {
   preview: { bucket: PUBLIC_BUCKET, exts: ['mp4', 'webm', 'm4v'], admin: false },
   thumb: { bucket: PUBLIC_BUCKET, exts: ['jpg', 'jpeg', 'png', 'webp'], admin: false },
   ad: { bucket: PUBLIC_BUCKET, exts: ['jpg', 'jpeg', 'png', 'webp', 'gif'], admin: true },
+  avatar: { bucket: PUBLIC_BUCKET, exts: ['jpg', 'jpeg', 'png', 'webp'], admin: false },
+  postimg: { bucket: PUBLIC_BUCKET, exts: ['jpg', 'jpeg', 'png', 'webp', 'gif'], admin: false }, // free post photo
+  postimg_private: { bucket: PRIVATE_BUCKET, exts: ['jpg', 'jpeg', 'png', 'webp', 'gif'], admin: false }, // premium post photo
 } as const;
 
 export async function POST(req: Request) {

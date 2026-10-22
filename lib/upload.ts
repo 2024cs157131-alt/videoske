@@ -2,7 +2,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { postJSON } from './client';
 
-export type UploadKind = 'video' | 'thumb' | 'preview' | 'ad';
+export type UploadKind = 'video' | 'thumb' | 'preview' | 'ad' | 'avatar' | 'postimg' | 'postimg_private';
 
 /** Upload a file straight from the browser to Supabase Storage; returns { path, url } (url only for public files). */
 export async function uploadFile(kind: UploadKind, file: File, ownerId?: string) {

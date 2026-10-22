@@ -4,7 +4,7 @@ export default function Terms() {
       <h1>Terms, content rules &amp; consent</h1>
       <p>
         <strong>Adults only.</strong> You must be at least 18 years old to register, watch, upload, go live or chat on
-        VideosKE. By registering you confirm your date of birth is true.
+        Vidaake. By registering you confirm your date of birth is true.
       </p>
       <p>
         <strong>Content rules.</strong> Videos are published straight away. Mature content (strong language, violence,
@@ -14,6 +14,12 @@ export default function Terms() {
         them. Breaking these rules gets content deleted and accounts banned.
       </p>
       <p>
+        <strong>Original content only.</strong> You may only upload videos that are your own original work – filmed or
+        created by you. Re-uploading another creator’s video, or content copied from other websites or apps, gets your
+        account banned automatically, your videos removed and your unpaid earnings withheld. Videos already on Vidaake
+        are fingerprinted, so re-uploads are detected the moment they’re uploaded.
+      </p>
+      <p>
         <strong>Consent of everyone shown.</strong> You may only upload or stream content in which every person is 18 or
         older and has agreed to being filmed and to the content being published and sold here. Content involving anyone
         under 18 is removed, the account banned and reported to the authorities.
@@ -21,16 +27,19 @@ export default function Terms() {
       <p>
         <strong>Tokens.</strong> 1 token = KSh 1. Visitors outside Kenya see prices converted to US dollars. Tokens are
         bought through Paystack (M-PESA or card) and used to unlock premium videos
-        and paid live streams on VideosKE. Tokens have no cash value for buyers, cannot be transferred, and are
-        non-refundable once spent.
+        and paid live streams on Vidaake. Tokens have no cash value for buyers, cannot be transferred, and are
+        non-refundable once spent. New members get a free welcome bonus (currently 200 tokens) for viewing content: it’s
+        spent before bought tokens, can’t be withdrawn or transferred, and unlocks bought with it don’t pay the creator.
       </p>
       <p>
-        <strong>Creator verification &amp; earnings.</strong> Anyone can post free videos. To post premium videos, run
+        <strong>Free members &amp; verified creators.</strong> Everyone joins as a free member and can post free videos and
+        posts (thoughts and stories). To post premium videos, run
         paid live streams or earn from views, creators pay a one-off, non-refundable verification fee (currently KSh 200)
         and get a verified badge. Verified creators earn 70% of the tokens spent on their premium videos and paid live
-        streams (VideosKE keeps 30%) and a set amount per 1,000 unique logged-in views of their free videos. Payout
-        details are saved at verification: in Kenya, the M-PESA number that paid the fee. Earnings are only paid to those
-        details, and changing them requires an admin. Fake views, fake accounts or self-viewing cancel earnings and may get
+        streams (Vidaake keeps 30%) and a set amount per 1,000 unique logged-in views of their free videos. Payout
+        details are saved at verification: in Kenya, the M-PESA number that paid the fee. Earnings become available 7 days after they’re
+        earned and are paid weekly, once a creator has at least KSh 4,500 available (one request per week). Earnings are
+        only paid to those details, and changing them requires an admin. Fake views, fake accounts or self-viewing cancel earnings and may get
         the account banned. We may withhold earnings from content that breaks these rules.
       </p>
       <p>

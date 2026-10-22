@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { notifyLive } from '@/lib/notify';
 import { prisma } from '@/lib/db';
 import { bad, readJson, requireApiUser } from '@/lib/api';
 
@@ -11,6 +12,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
   if (action === 'APPROVE') {
     await prisma.liveStream.update({ where: { id: params.id }, data: { status: 'APPROVED' } });
+    await notifyLive(params.id);
   } else if (action === 'FLAG' || action === 'REJECT') {
     await prisma.liveStream.update({
       where: { id: params.id },

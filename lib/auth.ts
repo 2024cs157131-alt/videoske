@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { cookies } from 'next/headers';
 import { prisma } from './db';
 import { SESSION_COOKIE, signSession, verifySession, type Role } from './jwt';
@@ -17,14 +18,14 @@ export function endSession() {
   cookies().delete(SESSION_COOKIE);
 }
 
-/** The logged-in user, or null. Banned users are treated as logged out. */
-export async function getCurrentUser() {
+/** The logged-in user, cached for the rest of this request (Nav, page and metadata share one lookup). */
+export const getCurrentUser = cache(async () => {
   const s = await verifySession(cookies().get(SESSION_COOKIE)?.value);
   if (!s) return null;
   const user = await prisma.user.findUnique({ where: { id: s.uid } });
   if (!user || user.banned) return null;
   return user;
-}
+});
 
 export function isAdult(dob: Date) {
   const eighteen = new Date(dob);

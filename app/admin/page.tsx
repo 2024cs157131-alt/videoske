@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { getSettings, money } from '@/lib/settings';
-import { signedVideoUrl } from '@/lib/storage';
+import { publicUrl, signedPrivateUrl, signedVideoUrl } from '@/lib/storage';
 import { paystackConfigured } from '@/lib/paystack';
 import ActionButton from '@/components/ActionButton';
 import SettingsForm from './SettingsForm';
@@ -26,9 +26,10 @@ export default async function AdminPage() {
   const [settings, pending, profiles, purchases, payouts, ads, reports, users, sales, unlockSums, ticketSums, counts] =
     await Promise.all([
       getSettings(),
-      // Flagged queue: videos with open reports, plus hidden videos waiting for a decision
+      // Flagged queue: content with open reports, plus hidden content waiting for a decision
+      // (content the creator marked sensitive has its own review queue below)
       prisma.video.findMany({
-        where: { OR: [{ status: 'PENDING' }, { reports: { some: { resolved: false } } }] },
+        where: { OR: [{ status: 'PENDING', sensitive: false }, { reports: { some: { resolved: false } } }] },
         include: { owner: true, reports: { where: { resolved: false }, include: { reporter: true }, orderBy: { createdAt: 'desc' } } },
         orderBy: { createdAt: 'desc' },
         take: 50,
@@ -73,10 +74,24 @@ export default async function AdminPage() {
     (v.reports.some((r) => r.category === 'UNDERAGE') ? 1000 : 0) +
     (v.reports.some((r) => r.category === 'SEXUAL') ? 100 : 0) +
     v.reports.length;
+  const sensitiveRaw = await prisma.video.findMany({
+    where: { status: 'PENDING', sensitive: true },
+    include: { owner: true },
+    orderBy: { createdAt: 'asc' },
+    take: 50,
+  });
+  const sensitiveQueue = await Promise.all(
+    sensitiveRaw.map(async (v) => ({
+      ...v,
+      url: v.videoPath ? await signedVideoUrl(v.videoPath, 3600).catch(() => null) : null,
+      img: v.imagePath ? (v.isPremium ? await signedPrivateUrl(v.imagePath, 3600) : publicUrl(v.imagePath)) : null,
+    })),
+  );
+
   const flagged = await Promise.all(
     [...pending]
       .sort((a, b) => urgency(b) - urgency(a))
-      .map(async (v) => ({ ...v, url: await signedVideoUrl(v.videoPath, 3600).catch(() => null) })),
+      .map(async (v) => ({ ...v, url: v.videoPath ? await signedVideoUrl(v.videoPath, 3600).catch(() => null) : null })),
   );
 
   return (
@@ -139,7 +154,11 @@ export default async function AdminPage() {
 
       <section className="card-panel">
         <h2 style={{ marginTop: 0 }}>Payout requests ({payouts.length})</h2>
-        <p className="muted small">Send the KES amount to the M-PESA number, then click “Mark paid”. “Reject” returns the tokens to the creator.</p>
+        <p className="muted small">
+          Pay these every {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][parseInt(settings.payout_weekday, 10) || 0]}:
+          send the KSh amount to the saved M-PESA number or bank account, then click “Mark paid”. “Reject” returns the
+          money to the creator’s earnings.
+        </p>
         {payouts.length === 0 && <p className="muted">No pending payouts.</p>}
         {payouts.map((p) => (
           <div key={p.id} className="list-item">
@@ -205,6 +224,41 @@ export default async function AdminPage() {
       </section>
 
       <section className="card-panel">
+        <h2 style={{ marginTop: 0 }}>⚠ Sensitive – waiting for review ({sensitiveQueue.length})</h2>
+        <p className="muted small">
+          Creators marked these as sensitive. They stay hidden (the creator sees “In review”) until you decide. Publish keeps
+          the content warning; Unpublish hides it and the creator sees “Unpublished”.
+        </p>
+        {sensitiveQueue.length === 0 && <p className="muted">Nothing to review. 🎉</p>}
+        {sensitiveQueue.map((v) => (
+          <div key={v.id} className="list-item" style={{ alignItems: 'flex-start', flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 280px', minWidth: 0 }}>
+              <Link href={`/v/${v.id}`}>
+                <strong>{v.kind === 'POST' ? '📝 ' : '🎬 '}{v.title}</strong>
+              </Link>
+              <div className="muted small">
+                @{v.owner.username} · {v.isPremium ? `Premium · KSh ${v.price}` : 'Free'} · {fmt(v.createdAt)}
+              </div>
+              {v.kind === 'POST' && <div className="review-text">{v.body}</div>}
+              {v.img && <img src={v.img} alt="" style={{ maxHeight: 200, marginTop: 8, borderRadius: 8 }} />}
+              {v.url && <video src={v.url} controls preload="metadata" style={{ maxHeight: 220, marginTop: 8, borderRadius: 8 }} />}
+            </div>
+            <div className="row">
+              <ActionButton url={`/api/admin/videos/${v.id}`} body={{ action: 'PUBLISH' }} label="✓ Publish" className="btn small ok" />
+              <ActionButton url={`/api/admin/videos/${v.id}`} body={{ action: 'UNPUBLISH' }} label="✕ Unpublish" className="btn small ghost" />
+              <ActionButton
+                url={`/api/admin/videos/${v.id}`}
+                body={{ action: 'DELETE' }}
+                label="🗑 Delete"
+                className="btn small danger"
+                confirmText="Delete this for good (e.g. sexual content)?"
+              />
+            </div>
+          </div>
+        ))}
+      </section>
+
+      <section className="card-panel">
         <h2 style={{ marginTop: 0 }}>🚩 Flagged content ({flagged.length})</h2>
         <p className="muted small">
           Videos publish straight away. Ones that users report show up here. Videos reported {settings.auto_hide_reports}+
@@ -239,6 +293,13 @@ export default async function AdminPage() {
                 label="🗑 Delete"
                 className="btn small danger"
                 confirmText="Delete this video and its files for good?"
+              />
+              <ActionButton
+                url={`/api/admin/videos/${v.id}`}
+                body={{ action: 'DELETE_BAN' }}
+                label="🚫 Not original – delete & ban"
+                className="btn small danger"
+                confirmText={`Delete this video and ban @${v.owner.username} for uploading content that isn't theirs?`}
               />
               <ActionButton url={`/api/admin/videos/${v.id}`} body={{ action: 'WARN' }} label="⚠ Keep with warning" className="btn small" />
               <ActionButton url={`/api/admin/videos/${v.id}`} body={{ action: 'DISMISS' }} label="Dismiss" className="btn small ghost" />

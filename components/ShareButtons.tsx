@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 export default function ShareButtons({ url, title }: { url: string; title: string }) {
   const [copied, setCopied] = useState(false);
   const u = encodeURIComponent(url);
-  const text = encodeURIComponent(`${title} – watch on VideosKE`);
+  const text = encodeURIComponent(`${title} – watch on Vidaake`);
   const [canNative, setCanNative] = useState(false);
   useEffect(() => setCanNative('share' in navigator), []);
 

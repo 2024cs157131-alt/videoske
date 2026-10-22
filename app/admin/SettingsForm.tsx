@@ -10,8 +10,11 @@ const YES_NO: Partial<Record<keyof Settings, [string, string]>> = {
   auto_approve_live: ['No – I approve each live stream', 'Yes – streams go live straight away'],
 };
 
-const FIELDS: { key: keyof Settings; label: string; type?: 'select' }[] = [
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+const FIELDS: { key: keyof Settings; label: string; type?: 'select' | 'day' }[] = [
   { key: 'verification_fee_kes', label: 'Creator verification fee (KSh)' },
+  { key: 'welcome_bonus', label: 'Free tokens for new sign-ups (viewing only)' },
   { key: 'views_rate', label: 'Verified creators earn per 1,000 unique views (KSh)' },
   { key: 'auto_publish', label: 'Publish videos without review', type: 'select' },
   { key: 'auto_hide_reports', label: 'Auto-hide a video after N reports (0 = never)' },
@@ -23,7 +26,9 @@ const FIELDS: { key: keyof Settings; label: string; type?: 'select' }[] = [
   { key: 'price_min', label: 'Premium video min price (tokens)' },
   { key: 'price_max', label: 'Premium video max price (tokens)' },
   { key: 'commission_percent', label: 'Your commission (%)' },
-  { key: 'payout_min_tokens', label: 'Minimum withdrawal (tokens)' },
+  { key: 'payout_min_tokens', label: 'Minimum weekly withdrawal (KSh)' },
+  { key: 'payout_hold_days', label: 'Earnings clear after (days)' },
+  { key: 'payout_weekday', label: 'Weekly payout day', type: 'day' },
   { key: 'referral_reward', label: 'Referral reward per active member (tokens = KSh)' },
   { key: 'referral_min_purchase', label: 'Referred member is active after buying (tokens)' },
   { key: 'native_ad_every', label: 'Native ad after every N videos (0 = off)' },
@@ -58,7 +63,15 @@ export default function SettingsForm({ initial }: { initial: Settings }) {
         {FIELDS.map((f) => (
           <div key={f.key}>
             <label>{f.label}</label>
-            {f.type === 'select' ? (
+            {f.type === 'day' ? (
+              <select value={s[f.key]} onChange={(e) => setS({ ...s, [f.key]: e.target.value })}>
+                {DAYS.map((d, i) => (
+                  <option key={d} value={String(i)}>
+                    {d}
+                  </option>
+                ))}
+              </select>
+            ) : f.type === 'select' ? (
               <select value={s[f.key]} onChange={(e) => setS({ ...s, [f.key]: e.target.value })}>
                 <option value="false">{YES_NO[f.key]?.[0] ?? 'No'}</option>
                 <option value="true">{YES_NO[f.key]?.[1] ?? 'Yes'}</option>

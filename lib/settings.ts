@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { randomInt } from 'crypto';
 import { prisma } from './db';
 
@@ -9,9 +10,12 @@ export const DEFAULT_SETTINGS = {
   token_packages: '100,200,500,1000,2000', // token amounts users can buy
   usd_enabled: 'false', // charge non-Kenyans in USD (enable USD on your Paystack account first)
   commission_percent: '30', // platform share of every token spend
-  payout_min_tokens: '1000', // minimum withdrawal
+  payout_min_tokens: '4500', // minimum withdrawal (KSh 4,500)
+  payout_hold_days: '7', // earnings become withdrawable this many days after they're earned
+  payout_weekday: '5', // payouts are sent weekly on this day (0 = Sunday … 5 = Friday)
   referral_reward: '50', // tokens (= KSh) paid to the referrer per active member
   referral_min_purchase: '100', // a referred member is "active" after buying at least this many tokens
+  welcome_bonus: '200', // free viewing tokens for every new account (not withdrawable)
   verification_fee_kes: '200', // one-off fee to become a verified creator
   views_rate: '20', // tokens (= KSh) a verified creator earns per 1000 unique views of a free video
   auto_publish: 'true', // new videos go live without admin review
@@ -24,12 +28,13 @@ export const DEFAULT_SETTINGS = {
 export type Settings = typeof DEFAULT_SETTINGS;
 export type SettingKey = keyof Settings;
 
-export async function getSettings(): Promise<Settings> {
+/** All settings, read once per request. */
+export const getSettings = cache(async (): Promise<Settings> => {
   const rows = await prisma.setting.findMany();
   const s: Settings = { ...DEFAULT_SETTINGS };
   for (const r of rows) if (r.key in s) s[r.key as SettingKey] = r.value;
   return s;
-}
+});
 
 /** Random whole-token price for a new premium video, between price_min and price_max (inclusive). */
 export async function randomPrice() {

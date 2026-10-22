@@ -5,22 +5,26 @@ import { useRouter } from 'next/navigation';
 import { postJSON } from '@/lib/client';
 
 export default function PayoutForm({
-  earned,
+  available,
   min,
   kesPerToken,
   verified,
   destination,
+  nextRequest,
+  payoutDay,
 }: {
-  earned: number;
+  available: number; // cleared earnings (tokens = KSh)
   min: number;
   kesPerToken: number;
   verified: boolean;
   destination: string | null; // e.g. "M-PESA 254712345678 (Jane Doe)"
+  nextRequest: string | null; // already requested this week → date of the next allowed request
+  payoutDay: string;
 }) {
   const router = useRouter();
-  const [tokens, setTokens] = useState(String(earned >= min ? earned : min));
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const ksh = (t: number) => `KSh ${Math.floor(t * kesPerToken).toLocaleString()}`;
 
   if (!verified) {
     return (
@@ -31,48 +35,57 @@ export default function PayoutForm({
       </p>
     );
   }
-  if (earned < min) {
+  if (nextRequest) {
     return (
-      <p className="muted">
-        You have {earned} earned tokens. You can withdraw once you reach {min}. Payouts go to <strong>{destination}</strong>.
+      <p className="success">
+        ✓ You’ve requested this week’s payout – it’s sent on {payoutDay}. Your next request opens {nextRequest}.
       </p>
+    );
+  }
+  if (available < min) {
+    const pct = Math.min(100, Math.round((available / min) * 100));
+    return (
+      <div className="stack">
+        <div className="progress" aria-label={`${pct}% of the minimum`}>
+          <div style={{ width: `${pct}%` }} />
+        </div>
+        <p className="muted" style={{ margin: 0 }}>
+          {ksh(available)} of {ksh(min)} available – keep earning! Payouts go to <strong>{destination}</strong>.
+        </p>
+      </div>
     );
   }
 
   return (
-    <form
-      className="row"
-      onSubmit={async (e) => {
-        e.preventDefault();
-        setBusy(true);
-        setMsg(null);
-        try {
-          await postJSON('/api/payouts', { tokens: parseInt(tokens, 10) });
-          setMsg({ ok: true, text: 'Withdrawal requested.' });
-          router.refresh();
-        } catch (err) {
-          setMsg({ ok: false, text: (err as Error).message });
-        } finally {
-          setBusy(false);
-        }
-      }}
-    >
-      <div style={{ flex: '1 1 160px' }}>
-        <label>Tokens (≈ KSh {Math.floor((parseInt(tokens, 10) || 0) * kesPerToken).toLocaleString()})</label>
-        <input type="number" min={min} max={earned} value={tokens} onChange={(e) => setTokens(e.target.value)} />
+    <div className="row">
+      <div style={{ flex: '2 1 240px' }}>
+        <strong>{ksh(available)}</strong> ready to withdraw
+        <div className="muted small">To {destination} · sent on {payoutDay}</div>
       </div>
-      <div style={{ flex: '2 1 220px' }}>
-        <label>Paid to (saved at verification)</label>
-        <input value={destination ?? ''} readOnly />
-      </div>
-      <button className="btn" disabled={busy} style={{ alignSelf: 'flex-end' }}>
-        Request withdrawal
+      <button
+        className="btn"
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true);
+          setMsg(null);
+          try {
+            await postJSON('/api/payouts', { tokens: available });
+            setMsg({ ok: true, text: `Requested – you’ll be paid on ${payoutDay}.` });
+            router.refresh();
+          } catch (err) {
+            setMsg({ ok: false, text: (err as Error).message });
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        {busy ? 'Requesting…' : `Request ${ksh(available)}`}
       </button>
       {msg && (
         <div className={msg.ok ? 'success' : 'error'} style={{ width: '100%' }}>
           {msg.text}
         </div>
       )}
-    </form>
+    </div>
   );
 }

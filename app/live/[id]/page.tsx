@@ -1,3 +1,4 @@
+import SubscribeButton from '@/components/SubscribeButton';
 import Link from 'next/link';
 import VerifiedBadge from '@/components/VerifiedBadge';
 import { notFound, redirect } from 'next/navigation';
@@ -12,7 +13,7 @@ import LiveRoom from './LiveRoom';
 
 export const dynamic = 'force-dynamic';
 
-export default async function LivePage({ params }: { params: { id: string } }) {
+export default async function LivePage({ params, searchParams }: { params: { id: string }; searchParams: { notified?: string } }) {
   const user = await getCurrentUser();
   if (!user) redirect(`/login?next=/live/${params.id}`);
   await endStaleStreams();
@@ -20,6 +21,12 @@ export default async function LivePage({ params }: { params: { id: string } }) {
   if (!stream) notFound();
 
   const pricing = await getPricing();
+  const [subscribers, subscribed] = await Promise.all([
+    prisma.follow.count({ where: { creatorId: stream.hostId } }),
+    stream.hostId !== user.id
+      ? prisma.follow.findUnique({ where: { followerId_creatorId: { followerId: user.id, creatorId: stream.hostId } } })
+      : null,
+  ]);
   const isHost = stream.hostId === user.id;
   const isAdmin = user.role === 'ADMIN';
   const waiting = stream.status === 'PENDING' && !isHost && !isAdmin;
@@ -33,6 +40,13 @@ export default async function LivePage({ params }: { params: { id: string } }) {
   return (
     <div className="stack">
       {!isHost && stream.isLive && <AutoRefresh seconds={waiting ? 15 : 30} />}
+      {isHost && stream.isLive && searchParams.notified !== undefined && (
+        <div className="success pop-in">
+          {stream.status === 'APPROVED'
+            ? `🔴 You’re live! 🔔 ${(parseInt(searchParams.notified, 10) || 0).toLocaleString()} subscribers notified.`
+            : '⏳ Your subscribers will be notified as soon as an admin approves your stream.'}
+        </div>
+      )}
       <div className="row between">
         <div>
           <h1 style={{ margin: 0 }}>
@@ -44,6 +58,7 @@ export default async function LivePage({ params }: { params: { id: string } }) {
           </Link>
         </div>
         <div className="row">
+          {!isHost && <SubscribeButton creatorId={stream.hostId} initialSubscribed={!!subscribed} initialCount={subscribers} loggedIn small />}
           {isAdmin && stream.isLive && stream.status === 'PENDING' && (
             <ActionButton url={`/api/admin/live/${stream.id}`} body={{ action: 'APPROVE' }} label="Approve" className="btn small ok" />
           )}
@@ -93,7 +108,7 @@ export default async function LivePage({ params }: { params: { id: string } }) {
           url={`/api/live/${stream.id}/ticket`}
           price={stream.ticketPrice}
           priceText={priceLabel(stream.ticketPrice, pricing)}
-          balance={user.tokenBalance}
+          balance={user.tokenBalance + user.bonusTokens}
           loggedIn
           what="this live stream"
           loginNext={`/live/${stream.id}`}

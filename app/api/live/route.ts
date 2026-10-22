@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { notifyLive } from '@/lib/notify';
 import { randomUUID } from 'crypto';
 import { prisma } from '@/lib/db';
 import { bad, readJson, requireApiUser } from '@/lib/api';
@@ -32,5 +33,6 @@ export async function POST(req: Request) {
       status: r.user.role === 'ADMIN' || (await getSettings()).auto_approve_live === 'true' ? 'APPROVED' : 'PENDING',
     },
   });
-  return NextResponse.json({ id: stream.id });
+  const notified = stream.status === 'APPROVED' ? await notifyLive(stream.id) : 0;
+  return NextResponse.json({ id: stream.id, notified });
 }

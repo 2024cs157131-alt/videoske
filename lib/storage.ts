@@ -16,6 +16,12 @@ export function publicUrl(path?: string | null) {
   return `${base}/storage/v1/object/public/${PUBLIC_BUCKET}/${path}`;
 }
 
+/** Short-lived link to a private file (premium post photo). */
+export async function signedPrivateUrl(path: string, seconds = 60 * 60 * 2) {
+  const { data } = await supabaseAdmin().storage.from(PRIVATE_BUCKET).createSignedUrl(path, seconds);
+  return data?.signedUrl ?? null;
+}
+
 /** Short-lived link to the full video. Only call this after checking the viewer has paid. */
 export async function signedVideoUrl(path: string, seconds = 60 * 60 * 2) {
   const { data, error } = await supabaseAdmin().storage.from(PRIVATE_BUCKET).createSignedUrl(path, seconds);

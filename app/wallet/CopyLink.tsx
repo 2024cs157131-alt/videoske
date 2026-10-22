@@ -3,7 +3,7 @@ import { useState } from 'react';
 
 export default function CopyLink({ link }: { link: string }) {
   const [copied, setCopied] = useState(false);
-  const text = encodeURIComponent(`Join me on VideosKE: ${link}`);
+  const text = encodeURIComponent(`Join me on Vidaake: ${link}`);
   return (
     <div className="row">
       <input value={link} readOnly onFocus={(e) => e.currentTarget.select()} style={{ flex: '1 1 260px' }} />

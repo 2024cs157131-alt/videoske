@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/db';
 import { bad, readJson } from '@/lib/api';
 import { isAdult, startSession } from '@/lib/auth';
+import { getSettings } from '@/lib/settings';
 
 export async function POST(req: Request) {
   const b = await readJson(req);
@@ -41,6 +42,16 @@ export async function POST(req: Request) {
       passwordHash: await bcrypt.hash(password, 12),
     },
   });
+  // Welcome gift: free viewing tokens (bonus wallet – spent first, never withdrawable)
+  const bonus = parseInt((await getSettings()).welcome_bonus, 10) || 0;
+  if (bonus > 0) {
+    await prisma.$transaction([
+      prisma.user.update({ where: { id: user.id }, data: { bonusTokens: bonus } }),
+      prisma.ledgerEntry.create({
+        data: { userId: user.id, type: 'WELCOME_BONUS', tokens: bonus, note: `Welcome gift: ${bonus} free tokens for viewing` },
+      }),
+    ]);
+  }
   await startSession(user.id, user.role);
   return NextResponse.json({ ok: true });
 }

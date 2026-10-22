@@ -46,6 +46,7 @@ enum LedgerType {
   REFERRAL // reward for referring an active member    (earnings +)
   VIEWS // earnings for every 1000 unique views of a free video (earnings +)
   VERIFICATION // paid the creator verification fee (no tokens, record only)
+  WELCOME_BONUS // free tokens on sign-up (bonus wallet: viewing only, not withdrawable)
 }
 
 model User {
@@ -61,6 +62,8 @@ model User {
   managedByAdmin Boolean         @default(false) // profile created by admin (no login)
   banned         Boolean         @default(false)
   tokenBalance   Int             @default(0) // tokens available to spend
+  bonusTokens    Int             @default(0) // free welcome tokens: spent first, never withdrawable, don't pay creators
+  avatarPath     String? // profile picture (public bucket)
   earnedTokens   Int             @default(0) // creator + referral earnings available to withdraw
   referredById     String? // who invited this user
   referredBy       User?   @relation("Referrals", fields: [referredById], references: [id], onDelete: SetNull)
@@ -90,6 +93,10 @@ model User {
   comments       Comment[]
   reports        Report[]
   viewsGiven     VideoView[]
+  following      Follow[]        @relation("following")
+  followers      Follow[]        @relation("followers")
+  notifications  Notification[]  @relation("notifications")
+  notified       Notification[]  @relation("notifActor")
 
   @@index([referredById])
 }
@@ -98,9 +105,12 @@ model Video {
   id          String      @id @default(cuid())
   title       String
   description String?
-  isPremium   Boolean     @default(true) // false = free public video
+  kind        String      @default("VIDEO") // "VIDEO" or "POST" (text story, optional photo)
+  isPremium   Boolean     @default(true) // false = free public content
+  body        String? // POST: the story text
   price       Int // token price (0 for free videos)
-  videoPath   String // private bucket - served via short-lived signed URL
+  videoPath   String? // VIDEO: private bucket - served via short-lived signed URL
+  imagePath   String? // POST: optional photo (private bucket when premium, public when free)
   thumbPath   String? // public bucket
   previewPath String? // public bucket - short teaser clip
   status      VideoStatus @default(PENDING)
@@ -109,6 +119,8 @@ model Video {
   moderationNote String? // reason shown to the creator when rejected
   views       Int         @default(0) // all plays (shown publicly)
   paidViews   Int         @default(0) // unique logged-in viewers – used for per-1000-views earnings
+  fingerprint String? // hash of the uploaded file – catches re-uploads of another creator's video
+  notifiedAt  DateTime? // when subscribers were told about it (once)
   ownerId     String
   owner       User        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   createdAt   DateTime    @default(now())
@@ -119,6 +131,7 @@ model Video {
 
   @@index([status, createdAt])
   @@index([ownerId])
+  @@index([fingerprint])
 }
 
 model Unlock {
@@ -217,6 +230,7 @@ model LiveStream {
   status        VideoStatus @default(PENDING) // viewers can join only after admin approval
   flaggedSexual Boolean     @default(false)
   lastSeenAt    DateTime    @default(now()) // host heartbeat; stale streams end automatically
+  notifiedAt    DateTime? // when subscribers were told the host is live
   isLive      Boolean      @default(true)
   startedAt   DateTime     @default(now())
   endedAt     DateTime?
@@ -280,4 +294,33 @@ model VideoView {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([videoId, userId])
+}
+
+// A member subscribed to a creator
+model Follow {
+  id         String   @id @default(cuid())
+  followerId String
+  creatorId  String
+  createdAt  DateTime @default(now())
+  follower   User     @relation("following", fields: [followerId], references: [id], onDelete: Cascade)
+  creator    User     @relation("followers", fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, creatorId])
+  @@index([creatorId, createdAt])
+}
+
+// "@jane uploaded a new video", "@jane is live now"…
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  actorId   String?
+  type      String // "UPLOAD" | "POST" | "LIVE" | "SUBSCRIBER"
+  text      String
+  link      String
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation("notifications", fields: [userId], references: [id], onDelete: Cascade)
+  actor     User?     @relation("notifActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
 }

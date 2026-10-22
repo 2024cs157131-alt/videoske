@@ -93,21 +93,35 @@ export async function settlePurchase(
 
 /**
  * Move `price` tokens from buyer to creator (minus platform commission), inside a transaction.
+ * Free welcome-bonus tokens are spent first; the creator's share is paid only on the part bought with
+ * real money (bonus tokens are free, so paying creators for them would let fake accounts cash out).
  * Returns the creator's share. Admin-run profiles and admins earn nothing (platform keeps 100%).
  */
 export async function spendTokens(
   tx: Prisma.TransactionClient,
   o: { buyerId: string; owner: { id: string; role: string; managedByAdmin: boolean }; price: number; commission: number; note: string },
 ) {
+  const buyer = await tx.user.findUnique({ where: { id: o.buyerId }, select: { bonusTokens: true, tokenBalance: true } });
+  if (!buyer) throw new InsufficientTokens();
+  const fromBonus = Math.min(buyer.bonusTokens, o.price);
+  const fromPaid = o.price - fromBonus;
+
   const taken = await tx.user.updateMany({
-    where: { id: o.buyerId, tokenBalance: { gte: o.price } },
-    data: { tokenBalance: { decrement: o.price } },
+    where: { id: o.buyerId, bonusTokens: { gte: fromBonus }, tokenBalance: { gte: fromPaid } },
+    data: { bonusTokens: { decrement: fromBonus }, tokenBalance: { decrement: fromPaid } },
   });
   if (taken.count === 0) throw new InsufficientTokens();
-  await tx.ledgerEntry.create({ data: { userId: o.buyerId, type: 'SPEND', tokens: -o.price, note: o.note } });
+  await tx.ledgerEntry.create({
+    data: {
+      userId: o.buyerId,
+      type: 'SPEND',
+      tokens: -o.price,
+      note: fromBonus ? `${o.note} (${fromBonus} bonus)` : o.note,
+    },
+  });
 
   if (o.owner.managedByAdmin || o.owner.role === 'ADMIN') return 0;
-  const share = Math.floor((o.price * (100 - o.commission)) / 100);
+  const share = Math.floor((fromPaid * (100 - o.commission)) / 100);
   if (share > 0) {
     await tx.user.update({ where: { id: o.owner.id }, data: { earnedTokens: { increment: share } } });
     await tx.ledgerEntry.create({ data: { userId: o.owner.id, type: 'EARN', tokens: share, note: o.note } });

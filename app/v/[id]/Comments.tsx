@@ -4,7 +4,15 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { postJSON } from '@/lib/client';
 
-type C = { id: string; body: string; createdAt: string; username: string };
+type C = {
+  id: string;
+  body: string;
+  createdAt: string;
+  username: string;
+  displayName: string;
+  avatarUrl: string | null;
+  verified: boolean;
+};
 
 export default function Comments({ videoId, comments, canComment }: { videoId: string; comments: C[]; canComment: boolean }) {
   const router = useRouter();
@@ -39,12 +47,26 @@ export default function Comments({ videoId, comments, canComment }: { videoId: s
       )}
       {comments.length === 0 && <p className="muted">No comments yet.</p>}
       {comments.map((c) => (
-        <div key={c.id} className="comment">
-          <Link href={`/u/${c.username}`}>
-            <strong>@{c.username}</strong>
-          </Link>{' '}
-          <span className="muted small">{new Date(c.createdAt).toLocaleString('en-KE')}</span>
-          <div style={{ whiteSpace: 'pre-wrap' }}>{c.body}</div>
+        <div key={c.id} className="comment fade-in">
+          <Link href={`/u/${c.username}`} className="comment-avatar" aria-hidden>
+            {c.avatarUrl ? (
+              <img src={c.avatarUrl} alt="" className="avatar" style={{ width: 32, height: 32 }} />
+            ) : (
+              <span className="avatar avatar-initials" style={{ width: 32, height: 32, fontSize: 13, background: '#2b6cdf' }}>
+                {(c.displayName || c.username)[0]?.toUpperCase()}
+              </span>
+            )}
+          </Link>
+          <div style={{ minWidth: 0 }}>
+            <Link href={`/u/${c.username}`}>
+              <strong>{c.displayName}</strong>
+            </Link>{' '}
+            {c.verified && <span title="Verified creator" style={{ color: '#1d9bf0' }}>✓</span>}{' '}
+            <span className="muted small">
+              @{c.username} · {new Date(c.createdAt).toLocaleString('en-KE', { dateStyle: 'medium', timeStyle: 'short' })}
+            </span>
+            <div style={{ whiteSpace: 'pre-wrap' }}>{c.body}</div>
+          </div>
         </div>
       ))}
     </div>

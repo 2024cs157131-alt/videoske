@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { headers } from 'next/headers';
+import { siteOrigin } from '@/lib/site';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { getSettings, kesPerToken, money, packagePrice, tokenPackages } from '@/lib/settings';
@@ -9,6 +9,8 @@ import BuyTokens from './BuyTokens';
 import PayoutForm from './PayoutForm';
 import CopyLink from './CopyLink';
 import { payoutDestination } from '@/lib/payout';
+import { dailyEarnings, earningsStatus } from '@/lib/earnings';
+import EarningsChart from '@/components/EarningsChart';
 import VerifiedBadge from '@/components/VerifiedBadge';
 import Link from 'next/link';
 
@@ -42,22 +44,41 @@ export default async function WalletPage() {
   const kpt = kesPerToken(s);
   const commission = parseInt(s.commission_percent, 10);
   const reward = parseInt(s.referral_reward, 10) || 0;
-  const host = headers().get('x-forwarded-host') || headers().get('host') || 'videoske.vercel.app';
-  const origin = (process.env.SITE_URL || `https://${host}`).replace(/\/$/, '');
+  const origin = siteOrigin();
+  const [earn, daily] = await Promise.all([earningsStatus(user, s), dailyEarnings(user.id, 14)]);
+  const today = daily[daily.length - 1]?.amount ?? 0;
+  const week = daily.slice(-7).reduce((n, d) => n + d.amount, 0);
   const refLink = `${origin}/register?ref=${user.username}`;
 
   return (
     <div className="stack">
       <div className="stats">
         <div className="card-panel stat">
-          <span className="muted">Token balance</span>
-          <strong>🪙 {user.tokenBalance}</strong>
-          <span className="muted small">≈ {priceLabel(user.tokenBalance, pricing)}</span>
+          <span className="muted">Tokens to spend</span>
+          <strong>🪙 {(user.tokenBalance + user.bonusTokens).toLocaleString()}</strong>
+          <span className="muted small">
+            {user.bonusTokens > 0
+              ? `${user.tokenBalance.toLocaleString()} bought + ${user.bonusTokens.toLocaleString()} free bonus (viewing only)`
+              : `≈ ${priceLabel(user.tokenBalance, pricing)}`}
+          </span>
+        </div>
+        <div className="card-panel stat stat-today">
+          <span className="muted">Earned today</span>
+          <strong className="count-up">KSh {Math.floor(today * kpt).toLocaleString()}</strong>
+          <span className="muted small">KSh {Math.floor(week * kpt).toLocaleString()} in the last 7 days</span>
         </div>
         <div className="card-panel stat">
-          <span className="muted">Earnings (videos, live &amp; referrals)</span>
-          <strong>🪙 {user.earnedTokens}</strong>
-          <span className="muted small">≈ KSh {Math.floor(user.earnedTokens * kpt).toLocaleString()}</span>
+          <span className="muted">Available to withdraw</span>
+          <strong>KSh {Math.floor(earn.available * kpt).toLocaleString()}</strong>
+          <span className="muted small">
+            of KSh {Math.floor(earn.total * kpt).toLocaleString()} earned
+            {earn.clearing > 0 ? ` · KSh ${Math.floor(earn.clearing * kpt).toLocaleString()} clearing` : ''}
+          </span>
+        </div>
+        <div className="card-panel stat">
+          <span className="muted">Next payout day</span>
+          <strong>{earn.nextPayoutDate.toLocaleDateString('en-KE', { weekday: 'long', day: 'numeric', month: 'short', timeZone: 'Africa/Nairobi' })}</strong>
+          <span className="muted small">Paid weekly every {earn.payoutDay}</span>
         </div>
       </div>
 
@@ -103,7 +124,15 @@ export default async function WalletPage() {
       </section>
 
       <section className="card-panel">
-        <h2 style={{ marginTop: 0 }}>Withdraw earnings</h2>
+        <h2 style={{ marginTop: 0 }}>Daily earnings</h2>
+        <p className="muted small" style={{ marginTop: 0 }}>
+          Premium sales, paid views and referral rewards, per day (last 14 days).
+        </p>
+        <EarningsChart days={daily} kesPerToken={kpt} />
+      </section>
+
+      <section className="card-panel">
+        <h2 style={{ marginTop: 0 }}>Weekly payouts</h2>
         <p className="muted">
           {user.verified ? (
             <>
@@ -118,16 +147,26 @@ export default async function WalletPage() {
             </>
           )}
           earn {100 - commission}% of the tokens people spend on their premium videos and paid live streams, plus KSh{' '}
-          {s.views_rate} per 1,000 unique views of their free videos. Everyone earns referral rewards. Minimum withdrawal:{' '}
-          {s.payout_min_tokens} tokens (KSh {(parseInt(s.payout_min_tokens, 10) * kpt).toLocaleString()}). Paid only to the
-          payout details saved at verification, usually within 2 working days.
+          {s.views_rate} per 1,000 unique views of their free videos. Everyone earns referral rewards.
         </p>
+        <ul className="pay-steps muted">
+          <li>Earnings build up and become available {s.payout_hold_days} days after they’re earned.</li>
+          <li>
+            Once you have at least <strong>KSh {(earn.min * kpt).toLocaleString()}</strong> available, request a payout –
+            one request per week.
+          </li>
+          <li>
+            Payouts are sent every <strong>{earn.payoutDay}</strong>, only to the payout details saved at verification.
+          </li>
+        </ul>
         <PayoutForm
-          earned={user.earnedTokens}
-          min={parseInt(s.payout_min_tokens, 10) || 1000}
+          available={earn.available}
+          min={earn.min}
           kesPerToken={kpt}
           verified={user.verified}
           destination={payoutDestination(user)}
+          nextRequest={earn.nextRequestAt ? earn.nextRequestAt.toLocaleDateString('en-KE', { weekday: 'long', day: 'numeric', month: 'short', timeZone: 'Africa/Nairobi' }) : null}
+          payoutDay={earn.payoutDay}
         />
         {payouts.length > 0 && (
           <div className="table-wrap" style={{ marginTop: 12 }}>
