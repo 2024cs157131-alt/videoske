@@ -131,7 +131,7 @@ export default async function ContentPage({
       {item.status === 'REJECTED' && (
         <div className="error">
           <strong>{status}.</strong>{' '}
-          {item.flaggedSexual ? 'Flagged as sexual content, which isn’t allowed on Vidaake.' : (item.moderationNote ?? '')}
+          {item.flaggedSexual ? 'Removed by an admin after review.' : (item.moderationNote ?? '')}
         </div>
       )}
 

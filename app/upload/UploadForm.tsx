@@ -186,8 +186,7 @@ export default function UploadForm({
       <label className="check">
         <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
         <span>
-          Everyone in this video is 18 or older and agreed to being filmed and published. Sexual content isn’t allowed
-          and is deleted when reported.
+          Everyone in this video is 18 or older and agreed to being filmed and published.
         </span>
       </label>
       {error && <div className="error">{error}</div>}

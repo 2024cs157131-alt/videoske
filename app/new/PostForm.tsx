@@ -109,7 +109,6 @@ export default function PostForm({
         <input type="checkbox" checked={original} onChange={(e) => setOriginal(e.target.checked)} />
         <span>
           <strong>This is my own post.</strong> It isn’t copied from someone else. Copied content gets accounts banned.
-          No sexual content.
         </span>
       </label>
       {error && <div className="error">{error}</div>}

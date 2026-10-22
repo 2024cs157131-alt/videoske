@@ -50,6 +50,14 @@ export async function POST(req: Request) {
       prisma.ledgerEntry.create({
         data: { userId: user.id, type: 'WELCOME_BONUS', tokens: bonus, note: `Welcome gift: ${bonus} free tokens for viewing` },
       }),
+      prisma.notification.create({
+        data: {
+          userId: user.id,
+          type: 'WELCOME',
+          text: `🎁 Welcome to Vidaake! You’ve received ${bonus} free tokens (KSh ${bonus}) to unlock premium videos and posts.`,
+          link: '/wallet',
+        },
+      }),
     ]);
   }
   await startSession(user.id, user.role);

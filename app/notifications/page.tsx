@@ -8,7 +8,7 @@ import { timeAgo } from '@/components/PostCard';
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Notifications' };
 
-const ICON: Record<string, string> = { UPLOAD: '🎬', POST: '📝', LIVE: '🔴', SUBSCRIBER: '🔔' };
+const ICON: Record<string, string> = { UPLOAD: '🎬', POST: '📝', LIVE: '🔴', SUBSCRIBER: '🔔', WELCOME: '🎁' };
 
 export default async function NotificationsPage() {
   const user = await getCurrentUser();
@@ -40,9 +40,7 @@ export default async function NotificationsPage() {
         >
           {n.actor ? <Avatar user={n.actor} size={40} /> : <span className="notif-icon">{ICON[n.type] ?? '🔔'}</span>}
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div>
-              {ICON[n.type] ?? '🔔'} {n.text}
-            </div>
+            <div>{n.type === 'WELCOME' ? n.text : `${ICON[n.type] ?? '🔔'} ${n.text}`}</div>
             <div className="muted small">{timeAgo(n.createdAt)} ago</div>
           </div>
           {!n.readAt && <span className="notif-dot" />}
