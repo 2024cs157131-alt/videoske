@@ -22,6 +22,8 @@ export default async function UploadPage({ searchParams }: { searchParams: { own
       : [];
 
   const defaultOwner = owners.find((o) => o.id === searchParams.owner)?.id ?? user.id;
+  // Premium uploads: verified creators, admins (for themselves and the profiles they run)
+  const canPremium = user.role === 'ADMIN' || user.verified;
 
   return (
     <div className="card-panel" style={{ maxWidth: 680, margin: '0 auto' }}>
@@ -37,6 +39,10 @@ export default async function UploadPage({ searchParams }: { searchParams: { own
       <UploadForm
         owners={owners}
         defaultOwner={defaultOwner}
+        canPremium={canPremium}
+        verifyFee={parseInt(settings.verification_fee_kes, 10) || 200}
+        viewsRate={parseInt(settings.views_rate, 10) || 0}
+        verified={user.verified}
         priceMin={parseInt(settings.price_min, 10)}
         priceMax={parseInt(settings.price_max, 10)}
         creatorPercent={100 - (parseInt(settings.commission_percent, 10) || 30)}

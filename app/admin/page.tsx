@@ -10,6 +10,8 @@ import SettingsForm from './SettingsForm';
 import CreateProfileForm from './CreateProfileForm';
 import AdForm from './AdForm';
 import CreditTokens from './CreditTokens';
+import VerifiedBadge from '@/components/VerifiedBadge';
+import { payoutDestination } from '@/lib/payout';
 import { endStaleStreams } from '@/lib/live';
 import { REPORT_CATEGORIES, type ReportCategory } from '@/lib/reports';
 
@@ -37,12 +39,17 @@ export default async function AdminPage() {
       prisma.ad.findMany({ orderBy: { createdAt: 'desc' } }),
       prisma.report.findMany({ where: { resolved: false }, include: { reporter: true, video: true }, orderBy: { createdAt: 'desc' } }),
       prisma.user.findMany({ where: { managedByAdmin: false }, orderBy: { createdAt: 'desc' }, take: 50 }),
-      prisma.tokenPurchase.groupBy({ by: ['currency'], where: { status: 'SUCCESS' }, _sum: { amount: true, tokens: true } }),
+      prisma.tokenPurchase.groupBy({ by: ['currency'], where: { status: 'SUCCESS', purpose: 'TOKENS' }, _sum: { amount: true, tokens: true } }),
       prisma.unlock.aggregate({ _sum: { tokens: true, creatorShare: true }, _count: true }),
       prisma.liveTicket.aggregate({ _sum: { tokens: true, creatorShare: true } }),
       Promise.all([prisma.user.count({ where: { managedByAdmin: false } }), prisma.video.count({ where: { status: 'APPROVED' } })]),
     ]);
   await endStaleStreams();
+  const [verifySales, verifiedCount, viewsPaid] = await Promise.all([
+    prisma.tokenPurchase.groupBy({ by: ['currency'], where: { status: 'SUCCESS', purpose: 'VERIFICATION' }, _sum: { amount: true }, _count: true }),
+    prisma.user.count({ where: { verified: true } }),
+    prisma.ledgerEntry.aggregate({ where: { type: 'VIEWS' }, _sum: { tokens: true } }),
+  ]);
   const [referralSum, views, liveNow] = await Promise.all([
     prisma.ledgerEntry.aggregate({ where: { type: 'REFERRAL' }, _sum: { tokens: true }, _count: true }),
     prisma.video.aggregate({ _sum: { views: true } }),
@@ -94,6 +101,16 @@ export default async function AdminPage() {
           </div>
         ))}
         <div className="card-panel stat">
+          <span className="muted">Verification fees</span>
+          <strong>{verifySales.length ? verifySales.map((v) => money(v._sum.amount ?? 0, v.currency)).join(' + ') : 'KSh 0'}</strong>
+          <span className="muted small">{verifiedCount} verified creators</span>
+        </div>
+        <div className="card-panel stat">
+          <span className="muted">Paid for views</span>
+          <strong>KSh {((viewsPaid._sum.tokens ?? 0) * kesPerToken).toLocaleString()}</strong>
+          <span className="muted small">KSh {settings.views_rate} per 1,000 unique views</span>
+        </div>
+        <div className="card-panel stat">
           <span className="muted">Your commission ({settings.commission_percent}%)</span>
           <strong>🪙 {platformTokens.toLocaleString()}</strong>
           <span className="muted small">≈ KES {Math.floor(platformTokens * kesPerToken).toLocaleString()}</span>
@@ -127,7 +144,8 @@ export default async function AdminPage() {
         {payouts.map((p) => (
           <div key={p.id} className="list-item">
             <div>
-              <strong>KES {p.amountKes.toLocaleString()}</strong> to <code>{p.phone}</code>
+              <strong>KSh {p.amountKes.toLocaleString()}</strong> to {p.method === 'BANK' ? 'bank' : 'M-PESA'} <code>{p.phone}</code>
+              {p.user.payoutName ? ` (${p.user.payoutName})` : ''}
               <div className="muted">
                 @{p.user.username} · {p.tokens} tokens · {fmt(p.createdAt)}
               </div>
@@ -333,6 +351,7 @@ export default async function AdminPage() {
                 <th>Email</th>
                 <th>Tokens</th>
                 <th>Earned</th>
+                <th>Verified / payout to</th>
                 <th>Referred by</th>
                 <th>Joined</th>
                 <th></th>
@@ -347,11 +366,32 @@ export default async function AdminPage() {
                   <td>{u.email}</td>
                   <td>{u.tokenBalance}</td>
                   <td>{u.earnedTokens}</td>
+                  <td className="small">
+                    {u.verified ? (
+                      <>
+                        <VerifiedBadge /> {payoutDestination(u) ?? 'no payout details'}
+                        {u.payoutMethod === 'BANK' && (
+                          <div className="muted">
+                            {u.payoutAccount} {u.payoutSwift} {u.payoutCountry}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      '–'
+                    )}
+                  </td>
                   <td>{u.referredById ? (referrers.get(u.referredById) ?? '–') : '–'}{u.referralRewarded ? ' ✓' : ''}</td>
                   <td>{fmt(u.createdAt)}</td>
                   <td>
                     <div className="row">
                       <CreditTokens userId={u.id} username={u.username} />
+                      <ActionButton
+                        url={`/api/admin/users/${u.id}`}
+                        body={{ verified: !u.verified }}
+                        label={u.verified ? 'Unverify' : 'Verify'}
+                        className="btn small ghost"
+                        confirmText={u.verified ? `Remove @${u.username}'s verified badge?` : `Verify @${u.username} without payment?`}
+                      />
                       {u.id !== me.id && (
                         <ActionButton
                           url={`/api/admin/users/${u.id}`}

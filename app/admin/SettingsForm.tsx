@@ -11,6 +11,8 @@ const YES_NO: Partial<Record<keyof Settings, [string, string]>> = {
 };
 
 const FIELDS: { key: keyof Settings; label: string; type?: 'select' }[] = [
+  { key: 'verification_fee_kes', label: 'Creator verification fee (KSh)' },
+  { key: 'views_rate', label: 'Verified creators earn per 1,000 unique views (KSh)' },
   { key: 'auto_publish', label: 'Publish videos without review', type: 'select' },
   { key: 'auto_hide_reports', label: 'Auto-hide a video after N reports (0 = never)' },
   { key: 'auto_approve_live', label: 'Live streams without approval', type: 'select' },

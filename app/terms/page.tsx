@@ -25,9 +25,13 @@ export default function Terms() {
         non-refundable once spent.
       </p>
       <p>
-        <strong>Creator earnings.</strong> Creators earn 70% of the tokens spent on their premium videos and paid live
-        streams; VideosKE keeps 30%. Free videos don’t earn. Earned tokens can be withdrawn to M-PESA once the minimum is
-        reached. We may withhold earnings from content that breaks these rules.
+        <strong>Creator verification &amp; earnings.</strong> Anyone can post free videos. To post premium videos, run
+        paid live streams or earn from views, creators pay a one-off, non-refundable verification fee (currently KSh 200)
+        and get a verified badge. Verified creators earn 70% of the tokens spent on their premium videos and paid live
+        streams (VideosKE keeps 30%) and a set amount per 1,000 unique logged-in views of their free videos. Payout
+        details are saved at verification: in Kenya, the M-PESA number that paid the fee. Earnings are only paid to those
+        details, and changing them requires an admin. Fake views, fake accounts or self-viewing cancel earnings and may get
+        the account banned. We may withhold earnings from content that breaks these rules.
       </p>
       <p>
         <strong>Referrals.</strong> Members earn a referral reward (currently KSh 50) for each new member who joins with

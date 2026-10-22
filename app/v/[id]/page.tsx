@@ -1,5 +1,9 @@
 import Link from 'next/link';
+import VerifiedBadge from '@/components/VerifiedBadge';
 import { notFound } from 'next/navigation';
+import { headers } from 'next/headers';
+import type { Metadata } from 'next';
+import ShareButtons from '@/components/ShareButtons';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { getSettings } from '@/lib/settings';
@@ -17,6 +21,29 @@ import { fmtViews } from '@/components/VideoCard';
 import { getPricing, priceLabel } from '@/lib/pricing';
 
 export const dynamic = 'force-dynamic';
+
+function siteOrigin() {
+  const h = headers();
+  const host = h.get('x-forwarded-host') || h.get('host') || 'videoske.vercel.app';
+  return (process.env.SITE_URL || `https://${host}`).replace(/\/$/, '');
+}
+
+// Link preview (WhatsApp, Facebook, X, Telegram…): title, description and thumbnail.
+// Videos with a content warning get no preview image.
+export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+  const v = await prisma.video.findUnique({ where: { id: params.id }, include: { owner: true } });
+  if (!v || v.status !== 'APPROVED' || v.owner.banned) return { title: 'VideosKE' };
+  const title = `${v.title} – @${v.owner.username} on VideosKE`;
+  const description = (v.description || (v.isPremium ? 'Premium video on VideosKE' : 'Watch free on VideosKE')).slice(0, 200);
+  const image = !v.sensitive ? publicUrl(v.thumbPath) : null;
+  const url = `${siteOrigin()}/v/${v.id}`;
+  return {
+    title,
+    description,
+    openGraph: { title, description, url, siteName: 'VideosKE', type: 'video.other', images: image ? [{ url: image }] : [] },
+    twitter: { card: image ? 'summary_large_image' : 'summary', title, description, images: image ? [image] : [] },
+  };
+}
 
 export default async function VideoPage({ params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -92,7 +119,7 @@ export default async function VideoPage({ params }: { params: { id: string } }) 
             {video.sensitive && <span className="badge" style={{ background: '#555' }}>⚠ Sensitive</span>}
           </h1>
           <Link href={`/u/${video.owner.username}`} className="muted">
-            @{video.owner.username} · {video.owner.displayName}
+            @{video.owner.username} {video.owner.verified && <VerifiedBadge />} · {video.owner.displayName}
           </Link>
           <span className="muted"> · {fmtViews(video.views)} views</span>
         </div>
@@ -122,6 +149,12 @@ export default async function VideoPage({ params }: { params: { id: string } }) 
         </div>
       </div>
       {video.description && <p style={{ whiteSpace: 'pre-wrap' }}>{video.description}</p>}
+      {video.status === 'APPROVED' && (
+        <ShareButtons
+          url={`${siteOrigin()}/v/${video.id}${user ? `?ref=${user.username}` : ''}`}
+          title={video.title}
+        />
+      )}
 
       {!canWatch && video.isPremium && (
         <TokenUnlock

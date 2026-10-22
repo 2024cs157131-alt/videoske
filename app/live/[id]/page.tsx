@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import VerifiedBadge from '@/components/VerifiedBadge';
 import { notFound, redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
@@ -39,7 +40,7 @@ export default async function LivePage({ params }: { params: { id: string } }) {
             {stream.title}
           </h1>
           <Link href={`/u/${stream.host.username}`} className="muted">
-            @{stream.host.username} {stream.ticketPrice > 0 ? `· ticket ${priceLabel(stream.ticketPrice, pricing)}` : '· free stream'}
+            @{stream.host.username} {stream.host.verified && <VerifiedBadge />} {stream.ticketPrice > 0 ? `· ticket ${priceLabel(stream.ticketPrice, pricing)}` : '· free stream'}
           </Link>
         </div>
         <div className="row">

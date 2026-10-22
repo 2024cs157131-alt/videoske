@@ -4,6 +4,7 @@ import { getSettings } from '@/lib/settings';
 import GoLiveForm from './GoLiveForm';
 import { endStaleStreams, visibleLiveWhere } from '@/lib/live';
 import { getPricing, priceLabel } from '@/lib/pricing';
+import { getCurrentUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,6 +19,7 @@ export default async function LiveIndex() {
     getSettings(),
   ]);
   const pricing = await getPricing(s);
+  const me = await getCurrentUser();
   const configured = !!process.env.LIVEKIT_API_KEY && !!process.env.NEXT_PUBLIC_LIVEKIT_URL;
 
   return (
@@ -25,7 +27,10 @@ export default async function LiveIndex() {
       <div className="card-panel">
         <h1>Go live</h1>
         {configured ? (
-          <GoLiveForm creatorPercent={100 - (parseInt(s.commission_percent, 10) || 30)} />
+          <GoLiveForm
+            creatorPercent={100 - (parseInt(s.commission_percent, 10) || 30)}
+            canCharge={!!me && (me.verified || me.role === 'ADMIN')}
+          />
         ) : (
           <p className="muted">Live streaming isn’t set up yet (admin: add LiveKit keys).</p>
         )}

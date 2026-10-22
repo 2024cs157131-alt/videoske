@@ -1,8 +1,11 @@
 import Link from 'next/link';
+import VerifiedBadge from '@/components/VerifiedBadge';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import VideoCard from '@/components/VideoCard';
+import ShareButtons from '@/components/ShareButtons';
+import { headers } from 'next/headers';
 import { getPricing } from '@/lib/pricing';
 import { endStaleStreams } from '@/lib/live';
 
@@ -27,6 +30,8 @@ export default async function ProfilePage({ params }: { params: { username: stri
   ]);
 
   const pricing = await getPricing();
+  const host = headers().get('x-forwarded-host') || headers().get('host') || 'videoske.vercel.app';
+  const origin = (process.env.SITE_URL || `https://${host}`).replace(/\/$/, '');
   const totalViews = videos.reduce((n, v) => n + v.views, 0);
   const unlocked = user
     ? new Set(
@@ -40,12 +45,19 @@ export default async function ProfilePage({ params }: { params: { username: stri
     <div className="stack">
       <div className="card-panel row between">
         <div>
-          <h1 style={{ margin: 0 }}>{profile.displayName}</h1>
+          <h1 style={{ margin: 0 }}>
+            {profile.displayName} {profile.verified && <VerifiedBadge size={20} />}
+          </h1>
           <div className="muted">
             @{profile.username} · {videos.length} video{videos.length === 1 ? '' : 's'} · {totalViews.toLocaleString()} views
             {profile.banned && ' · BANNED'}
           </div>
           {profile.bio && <p style={{ margin: '8px 0 0', whiteSpace: 'pre-wrap' }}>{profile.bio}</p>}
+          {!profile.banned && (
+            <div style={{ marginTop: 10 }}>
+              <ShareButtons url={`${origin}/u/${profile.username}${user ? `?ref=${user.username}` : ''}`} title={`${profile.displayName} on VideosKE`} />
+            </div>
+          )}
         </div>
         <div className="row">
           {live && (
@@ -61,6 +73,11 @@ export default async function ProfilePage({ params }: { params: { username: stri
           {isMe && (
             <Link href="/wallet" className="btn ghost">
               🪙 Earnings: {profile.earnedTokens}
+            </Link>
+          )}
+          {isMe && !profile.verified && (
+            <Link href="/verify" className="btn ghost">
+              <VerifiedBadge /> Get verified
             </Link>
           )}
           {(isMe || (isAdmin && profile.managedByAdmin)) && (

@@ -27,6 +27,8 @@ export async function POST(req: Request) {
   if (![v.usd_enabled, v.auto_publish, v.auto_approve_live].every((x) => ['true', 'false'].includes(x))) {
     return bad('Invalid yes/no setting.');
   }
+  if (!(int(v.verification_fee_kes) >= 1)) return bad('Verification fee must be at least KSh 1.');
+  if (!(int(v.views_rate) >= 0)) return bad('Views rate must be a whole number (0 = off).');
   if (!(int(v.auto_hide_reports) >= 0)) return bad('Auto-hide must be a whole number (0 = never).');
   const commission = int(v.commission_percent);
   if (!(commission >= 0 && commission <= 100)) return bad('Commission must be 0–100%.');

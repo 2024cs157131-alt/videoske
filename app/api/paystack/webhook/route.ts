@@ -18,6 +18,8 @@ export async function POST(req: Request) {
       amount: Number(d.amount),
       currency: String(d.currency),
       channel: d.channel ? String(d.channel) : undefined,
+      customer: d.customer ?? null,
+      authorization: d.authorization ?? null,
     });
   }
   return NextResponse.json({ received: true });

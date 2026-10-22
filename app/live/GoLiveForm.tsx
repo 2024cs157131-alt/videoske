@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { postJSON } from '@/lib/client';
 
-export default function GoLiveForm({ creatorPercent }: { creatorPercent: number }) {
+export default function GoLiveForm({ creatorPercent, canCharge }: { creatorPercent: number; canCharge: boolean }) {
   const router = useRouter();
   const [title, setTitle] = useState('');
   const [ticketPrice, setTicketPrice] = useState('0');
@@ -18,7 +18,7 @@ export default function GoLiveForm({ creatorPercent }: { creatorPercent: number 
         setBusy(true);
         setError('');
         try {
-          const { id } = await postJSON<{ id: string }>('/api/live', { title, ticketPrice: parseInt(ticketPrice, 10) || 0 });
+          const { id } = await postJSON<{ id: string }>('/api/live', { title, ticketPrice: canCharge ? parseInt(ticketPrice, 10) || 0 : 0 });
           router.push(`/live/${id}`);
         } catch (err) {
           setError((err as Error).message);
@@ -33,11 +33,27 @@ export default function GoLiveForm({ creatorPercent }: { creatorPercent: number 
         </div>
         <div style={{ flex: '1 1 140px' }}>
           <label>Ticket price (tokens = KSh, 0 = free)</label>
-          <input type="number" min={0} value={ticketPrice} onChange={(e) => setTicketPrice(e.target.value)} />
+          <input
+            type="number"
+            min={0}
+            value={canCharge ? ticketPrice : '0'}
+            disabled={!canCharge}
+            onChange={(e) => setTicketPrice(e.target.value)}
+          />
         </div>
       </div>
       <p className="muted small" style={{ margin: 0 }}>
-        Paid streams: you earn {creatorPercent}% of every ticket. An admin approves your stream before viewers can join.
+        {canCharge ? (
+          <>Paid streams: you earn {creatorPercent}% of every ticket. </>
+        ) : (
+          <>
+            <a href="/verify" style={{ textDecoration: 'underline' }}>
+              Get verified
+            </a>{' '}
+            to charge for your streams.{' '}
+          </>
+        )}
+        An admin approves your stream before viewers can join.
       </p>
       {error && <div className="error">{error}</div>}
       <div>

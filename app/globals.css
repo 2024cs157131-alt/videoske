@@ -149,3 +149,8 @@ input[type='date']::-webkit-datetime-edit-fields-wrapper { color: var(--text); }
 .sensitive-wrap { position: relative; width: 100%; height: 100%; }
 .sensitive-blur { width: 100%; height: 100%; filter: blur(28px); pointer-events: none; overflow: hidden; }
 .sensitive-overlay { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; background: rgba(0,0,0,.55); padding: 16px; }
+
+/* --- share buttons --- */
+.share-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.share-btn { color: #fff; border: 0; border-radius: 999px; padding: 6px 14px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
+.share-btn:hover { color: #fff; filter: brightness(1.15); }

@@ -12,12 +12,20 @@ export default function UploadForm({
   priceMin,
   priceMax,
   creatorPercent,
+  canPremium,
+  verifyFee,
+  viewsRate,
+  verified,
 }: {
   owners: Owner[];
   defaultOwner: string;
   priceMin: number;
   priceMax: number;
   creatorPercent: number;
+  canPremium: boolean;
+  verifyFee: number;
+  viewsRate: number;
+  verified: boolean;
 }) {
   const [ownerId, setOwnerId] = useState(defaultOwner);
   const [isPremium, setIsPremium] = useState(false);
@@ -98,11 +106,16 @@ export default function UploadForm({
           <span>
             <strong>Free (public)</strong>
             <br />
-            <span className="muted small">Anyone can watch. Shown with a normal thumbnail. Free videos don’t earn.</span>
+            <span className="muted small">
+              Anyone can watch. Shown with a normal thumbnail.{' '}
+              {verified
+                ? `You earn KSh ${viewsRate} per 1,000 unique views.`
+                : `Verified creators earn KSh ${viewsRate} per 1,000 unique views.`}
+            </span>
           </span>
         </label>
-        <label className={`radio-card ${isPremium ? 'on' : ''}`}>
-          <input type="radio" checked={isPremium} onChange={() => setIsPremium(true)} />
+        <label className={`radio-card ${isPremium ? 'on' : ''}`} style={canPremium ? undefined : { opacity: 0.6, cursor: 'default' }}>
+          <input type="radio" checked={isPremium} disabled={!canPremium} onChange={() => setIsPremium(true)} />
           <span>
             <strong>Premium (paid)</strong>
             <br />
@@ -110,6 +123,14 @@ export default function UploadForm({
               Unlocked with tokens (KSh {priceMin}–{priceMax}, set randomly). A greyed-out 8-second trailer is made
               automatically. You earn {creatorPercent}%.
             </span>
+            {!canPremium && (
+              <>
+                <br />
+                <a href="/verify" className="small" style={{ textDecoration: 'underline', color: 'var(--accent-2)' }}>
+                  Get verified (KSh {verifyFee}) to upload premium videos →
+                </a>
+              </>
+            )}
           </span>
         </label>
       </div>

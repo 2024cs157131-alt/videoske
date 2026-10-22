@@ -28,6 +28,13 @@ export async function POST(req: Request) {
   if (thumbPath && !thumbPath.startsWith(`${ownerId}/thumb/`)) return bad('Invalid thumbnail.');
   if (previewPath && !previewPath.startsWith(`${ownerId}/preview/`)) return bad('Invalid preview clip.');
 
+  if (isPremium && user.role !== 'ADMIN') {
+    const owner = await prisma.user.findUnique({ where: { id: ownerId } });
+    if (!owner?.verified && !owner?.managedByAdmin) {
+      return bad('Only verified creators can upload premium videos. Get verified first.', 403);
+    }
+  }
+
   const autoPublish = (await getSettings()).auto_publish === 'true';
   const video = await prisma.video.create({
     data: {

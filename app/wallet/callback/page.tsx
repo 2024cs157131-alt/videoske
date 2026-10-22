@@ -39,7 +39,16 @@ export default async function PaymentCallback({ searchParams }: { searchParams: 
   const status = purchase!.status;
   return (
     <div className="card-panel narrow stack" style={{ textAlign: 'center' }}>
-      {status === 'SUCCESS' && (
+      {status === 'SUCCESS' && purchase!.purpose === 'VERIFICATION' && (
+        <>
+          <h1>✅ You’re now a verified creator</h1>
+          <p>Your badge is live and your payout details are saved. You can now upload premium videos.</p>
+          <Link href="/upload" className="btn" style={{ alignSelf: 'center' }}>
+            Upload a video
+          </Link>
+        </>
+      )}
+      {status === 'SUCCESS' && purchase!.purpose !== 'VERIFICATION' && (
         <>
           <h1>✅ Payment successful</h1>
           <p>🪙 {purchase!.tokens} tokens have been added to your wallet.</p>
@@ -49,8 +58,7 @@ export default async function PaymentCallback({ searchParams }: { searchParams: 
         <>
           <h1>⏳ Waiting for confirmation</h1>
           <p className="muted">
-            If you approved the M-PESA prompt, your tokens will appear within a minute. Refresh this page or check your
-            wallet.
+            If you approved the M-PESA prompt, it will be confirmed within a minute. Refresh this page shortly.
           </p>
         </>
       )}

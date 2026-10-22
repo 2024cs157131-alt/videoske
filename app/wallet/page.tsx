@@ -8,6 +8,9 @@ import { paystackConfigured } from '@/lib/paystack';
 import BuyTokens from './BuyTokens';
 import PayoutForm from './PayoutForm';
 import CopyLink from './CopyLink';
+import { payoutDestination } from '@/lib/payout';
+import VerifiedBadge from '@/components/VerifiedBadge';
+import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
@@ -102,12 +105,30 @@ export default async function WalletPage() {
       <section className="card-panel">
         <h2 style={{ marginTop: 0 }}>Withdraw earnings</h2>
         <p className="muted">
-          You earn {100 - commission}% of the tokens people spend on your premium videos and paid live streams, plus
-          referral rewards. Free videos don’t earn. Minimum withdrawal: {s.payout_min_tokens} tokens (KSh{' '}
-          {(parseInt(s.payout_min_tokens, 10) * kpt).toLocaleString()}). Paid to your M-PESA number by an admin, usually
-          within 2 working days.
+          {user.verified ? (
+            <>
+              <VerifiedBadge /> Verified creator.{' '}
+            </>
+          ) : (
+            <>
+              <Link href="/verify" style={{ textDecoration: 'underline' }}>
+                Verified creators
+              </Link>{' '}
+              (one-off KSh {s.verification_fee_kes}){' '}
+            </>
+          )}
+          earn {100 - commission}% of the tokens people spend on their premium videos and paid live streams, plus KSh{' '}
+          {s.views_rate} per 1,000 unique views of their free videos. Everyone earns referral rewards. Minimum withdrawal:{' '}
+          {s.payout_min_tokens} tokens (KSh {(parseInt(s.payout_min_tokens, 10) * kpt).toLocaleString()}). Paid only to the
+          payout details saved at verification, usually within 2 working days.
         </p>
-        <PayoutForm earned={user.earnedTokens} min={parseInt(s.payout_min_tokens, 10) || 1000} kesPerToken={kpt} />
+        <PayoutForm
+          earned={user.earnedTokens}
+          min={parseInt(s.payout_min_tokens, 10) || 1000}
+          kesPerToken={kpt}
+          verified={user.verified}
+          destination={payoutDestination(user)}
+        />
         {payouts.length > 0 && (
           <div className="table-wrap" style={{ marginTop: 12 }}>
             <table>
@@ -151,7 +172,7 @@ export default async function WalletPage() {
                   <td>{l.note ?? l.type}</td>
                   <td className={l.tokens >= 0 ? 'plus' : 'minus'} style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                     {l.tokens >= 0 ? '+' : ''}
-                    {l.tokens} {['EARN', 'PAYOUT', 'PAYOUT_REFUND', 'REFERRAL'].includes(l.type) ? '(earnings)' : ''}
+                    {l.tokens} {['EARN', 'PAYOUT', 'PAYOUT_REFUND', 'REFERRAL', 'VIEWS'].includes(l.type) ? '(earnings)' : ''}
                   </td>
                 </tr>
               ))}

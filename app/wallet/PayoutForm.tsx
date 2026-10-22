@@ -1,17 +1,42 @@
 'use client';
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { postJSON } from '@/lib/client';
 
-export default function PayoutForm({ earned, min, kesPerToken }: { earned: number; min: number; kesPerToken: number }) {
+export default function PayoutForm({
+  earned,
+  min,
+  kesPerToken,
+  verified,
+  destination,
+}: {
+  earned: number;
+  min: number;
+  kesPerToken: number;
+  verified: boolean;
+  destination: string | null; // e.g. "M-PESA 254712345678 (Jane Doe)"
+}) {
   const router = useRouter();
   const [tokens, setTokens] = useState(String(earned >= min ? earned : min));
-  const [phone, setPhone] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
+  if (!verified) {
+    return (
+      <p>
+        <Link href="/verify" className="btn small">
+          Get verified to withdraw
+        </Link>
+      </p>
+    );
+  }
   if (earned < min) {
-    return <p className="muted">You have {earned} earned tokens. You can withdraw once you reach {min}.</p>;
+    return (
+      <p className="muted">
+        You have {earned} earned tokens. You can withdraw once you reach {min}. Payouts go to <strong>{destination}</strong>.
+      </p>
+    );
   }
 
   return (
@@ -22,7 +47,7 @@ export default function PayoutForm({ earned, min, kesPerToken }: { earned: numbe
         setBusy(true);
         setMsg(null);
         try {
-          await postJSON('/api/payouts', { tokens: parseInt(tokens, 10), phone });
+          await postJSON('/api/payouts', { tokens: parseInt(tokens, 10) });
           setMsg({ ok: true, text: 'Withdrawal requested.' });
           router.refresh();
         } catch (err) {
@@ -32,13 +57,13 @@ export default function PayoutForm({ earned, min, kesPerToken }: { earned: numbe
         }
       }}
     >
-      <div style={{ flex: '1 1 140px' }}>
-        <label>Tokens (≈ KES {Math.floor((parseInt(tokens, 10) || 0) * kesPerToken).toLocaleString()})</label>
+      <div style={{ flex: '1 1 160px' }}>
+        <label>Tokens (≈ KSh {Math.floor((parseInt(tokens, 10) || 0) * kesPerToken).toLocaleString()})</label>
         <input type="number" min={min} max={earned} value={tokens} onChange={(e) => setTokens(e.target.value)} />
       </div>
-      <div style={{ flex: '1 1 180px' }}>
-        <label>M-PESA number</label>
-        <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0712345678" required />
+      <div style={{ flex: '2 1 220px' }}>
+        <label>Paid to (saved at verification)</label>
+        <input value={destination ?? ''} readOnly />
       </div>
       <button className="btn" disabled={busy} style={{ alignSelf: 'flex-end' }}>
         Request withdrawal
