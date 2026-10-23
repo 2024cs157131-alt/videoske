@@ -19,6 +19,7 @@ export default function AgeGate() {
       localStorage.setItem('vk_age_ok', '1');
     } catch {}
     setShow(false);
+    window.dispatchEvent(new Event('vk:age-ok')); // lets the earnings intro open next
   };
 
   return (

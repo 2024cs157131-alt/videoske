@@ -334,3 +334,8 @@ body { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
 .comment-tools .link:hover { color: var(--accent-2); }
 .comment.is-hidden { opacity: .55; }
 .mini-badge { display: inline-grid; place-items: center; width: 14px; height: 14px; border-radius: 50%; background: #1d9bf0; color: #fff; font-size: 9px; font-weight: 800; vertical-align: 1px; }
+.earn-modal { border-color: rgba(47,191,113,.45); }
+.earn-coin { width: 64px; height: 64px; margin: 0 auto; border-radius: 50%; display: grid; place-items: center; font-size: 32px;
+  background: radial-gradient(circle at 35% 30%, #6ee7a8, var(--ok)); box-shadow: 0 0 0 0 rgba(47,191,113,.5); animation: coinBounce 1.6s ease-in-out infinite, pulseGreen 2s infinite; }
+@keyframes coinBounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes pulseGreen { 0% { box-shadow: 0 0 0 0 rgba(47,191,113,.55); } 70% { box-shadow: 0 0 0 16px rgba(47,191,113,0); } 100% { box-shadow: 0 0 0 0 rgba(47,191,113,0); } }

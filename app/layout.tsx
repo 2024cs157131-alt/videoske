@@ -6,6 +6,7 @@ import RefCapture from '@/components/RefCapture';
 import PauseOnHide from '@/components/PauseOnHide';
 import UpgradeModal from '@/components/UpgradeModal';
 import TabBar from '@/components/TabBar';
+import EarnIntro from '@/components/EarnIntro';
 import { navCounts } from '@/lib/nav';
 import { publicUrl } from '@/lib/storage';
 import { getCurrentUser } from '@/lib/auth';
@@ -50,6 +51,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body>
         <AgeGate />
+        {/* Visitors who haven't joined yet: one-time earnings intro after the 18+ screen */}
+        {!user && <EarnIntro fee={parseInt((await getSettings()).verification_fee_kes, 10) || 200} maxDaily={1000} />}
         <RefCapture />
         <PauseOnHide />
         <Nav />
